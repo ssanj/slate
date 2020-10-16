@@ -22,10 +22,11 @@ import Network.HTTP.Types.Status (created201, ok200)
 import qualified Web.Scotty   as SC (json)
 import qualified Data.Text    as T
 
-server :: IO ()
-server =
+server :: ApiKey  -> IO ()
+server apiKey =
   scotty 3000 $ do
-    middleware $ createMiddleware addStaticDirPolicy
+    middleware $ createMiddleware addStaticDirPolicy -- Need to have this first to serve static content
+    middleware $ checkApiKey apiKey
     get "/notes" $ do
       withScribDbActionM retrieveTopNotes SC.json
 

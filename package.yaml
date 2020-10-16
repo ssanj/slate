@@ -40,6 +40,8 @@ library:
   - wai-middleware-static
   - http-types
   - sqlite-simple
+  - case-insensitive
+  - bytestring
 
   ghc-options:
   - -Werror

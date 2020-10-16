@@ -10,6 +10,7 @@ module Model
        ,  OutgoingNote(..)
        ,  NewDBNote(..)
        ,  DBNote(..)
+       ,  ApiKey(..)
        ) where
 
 import GHC.Generics
@@ -29,6 +30,8 @@ data IncomingNote = IncomingNote { _incomingNoteText :: T.Text, _incomingNoteId 
 data DBNote = DBNote {  _dbNoteId :: Int, _dbNoteText :: T.Text } deriving stock (Show)
 
 newtype NewDBNote = NewDBNote {  _newdbNoteText :: T.Text } deriving stock (Show)
+
+newtype ApiKey = ApiKey { _apiKey :: T.Text } deriving stock (Eq, Show)
 
 -- JSON Encode/Decode
 

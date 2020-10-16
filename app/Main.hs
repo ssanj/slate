@@ -2,5 +2,7 @@ module Main where
 
 import SlateApi (server)
 
+import Cmd (getApiKey)
+
 main :: IO ()
-main = server
+main = getApiKey >>= server
