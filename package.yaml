@@ -42,6 +42,7 @@ library:
   - sqlite-simple
   - case-insensitive
   - bytestring
+  - tagged
 
   ghc-options:
   - -Werror

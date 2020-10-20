@@ -16,8 +16,8 @@ import Model
 import Control.Monad.IO.Class (liftIO)
 import Web.Scotty hiding (json, Options)
 import Data.Aeson (ToJSON)
-import Database.SQLite.Simple (Connection, withConnection)
-import Network.HTTP.Types.Status (created201, ok200)
+import Database.SQLite.Simple (Connection, withTransaction, withConnection)
+import Network.HTTP.Types.Status (Status, created201, ok200, status400)
 
 import qualified Web.Scotty   as SC (json)
 import qualified Data.Text    as T
@@ -36,8 +36,21 @@ server apiKey =
 
     post "/note" $ do
       (note :: IncomingNote) <- jsonData
-      noteId <- withScribDb (saveNote note)
-      maybe (created noteId) ok (_incomingNoteId note)
+      noteIdE <- withScribDb (saveNote note)
+      case noteIdE of
+       (Left errorMessage) -> withError errorMessage
+       (Right noteIdVersion) -> maybe (jsonResponse created201 noteIdVersion) (const $ jsonResponse ok200 noteIdVersion) (_incomingNoteId note)
+
+
+withError :: DBError -> ActionM ()
+withError dbError = SC.json (dbErrorToString dbError) >> status status400
+
+-- TODO: Prob send back a Json object with ErrorId and Message
+dbErrorToString :: DBError -> OutgoingError
+dbErrorToString db@(ItemNotFound _)      = OutgoingError (getDBErrorCode db) "The note specified could not be found"
+dbErrorToString db@(InvalidVersion _)    = OutgoingError (getDBErrorCode db) "The version of the note supplied is invalid"
+dbErrorToString db@NeedIdAndVersion      = OutgoingError (getDBErrorCode db) "The save did not send the expected information to the server"
+dbErrorToString db@(VersionMismatch _ _) = OutgoingError (getDBErrorCode db) "There's a different version of this note on the server. Refresh and try again"
 
 withScribDb :: (Connection -> IO a) -> ActionM a
 withScribDb = liftIO . scribDB
@@ -48,17 +61,17 @@ withScribDbActionM cb conversion = do
   conversion value
 
 scribDB :: (Connection -> IO a) -> IO a
-scribDB = withConnection "scrib.db"
+scribDB dbOp = withConnection "scrib.db" (\con -> withTransaction con (dbOp con))
 
-ok :: ToJSON a => a -> ActionM ()
-ok value = SC.json value  >>  status ok200
+jsonResponse :: ToJSON a => Status -> a -> ActionM ()
+jsonResponse st value = SC.json value >> status st
 
-created :: Int -> ActionM ()
-created noteId = SC.json (noteId :: Int) >> status created201
-
-saveNote :: IncomingNote -> Connection -> IO Int
-saveNote (IncomingNote noteText (Just noteId)) = saveExitingNote (DBNote noteId noteText)
-saveNote (IncomingNote noteText Nothing)       = saveNewNote (NewDBNote noteText)
+saveNote :: IncomingNote -> Connection -> IO (Either DBError NoteIdVersion)
+saveNote (IncomingNote noteText (Just noteId) (Just version)) con =
+  saveExitingNote (DBNote noteId noteText version) con
+saveNote (IncomingNote noteText Nothing Nothing) con =
+   pure <$> (saveNewNote (NewDBNote noteText) con)
+saveNote _ _ = pure . Left $ NeedIdAndVersion
 
 searchForNotes :: T.Text -> Connection -> IO [OutgoingNote]
 searchForNotes query con = fmap (fmap createNote) (searchNotes query con)
@@ -67,5 +80,4 @@ retrieveTopNotes :: Connection -> IO [OutgoingNote]
 retrieveTopNotes con = fmap (fmap createNote) (fetchNotes maxFetchSize con)
 
 createNote :: DBNote -> OutgoingNote
-createNote (DBNote noteId noteText) = OutgoingNote noteText noteId
-
+createNote (DBNote noteId noteText noteVersion) = OutgoingNote noteText noteId noteVersion
