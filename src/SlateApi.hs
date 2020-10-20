@@ -45,13 +45,6 @@ server apiKey =
 withError :: DBError -> ActionM ()
 withError dbError = SC.json (dbErrorToString dbError) >> status status400
 
--- TODO: Prob send back a Json object with ErrorId and Message
-dbErrorToString :: DBError -> OutgoingError
-dbErrorToString db@(ItemNotFound _)      = OutgoingError (getDBErrorCode db) "The note specified could not be found"
-dbErrorToString db@(InvalidVersion _)    = OutgoingError (getDBErrorCode db) "The version of the note supplied is invalid"
-dbErrorToString db@NeedIdAndVersion      = OutgoingError (getDBErrorCode db) "The save did not send the expected information to the server"
-dbErrorToString db@(VersionMismatch _ _) = OutgoingError (getDBErrorCode db) "There's a different version of this note on the server. Refresh and try again"
-
 withScribDb :: (Connection -> IO a) -> ActionM a
 withScribDb = liftIO . scribDB
 

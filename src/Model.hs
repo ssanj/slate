@@ -19,6 +19,7 @@ module Model
 
          -- Functions
        ,  getDBErrorCode
+       ,  dbErrorToString
        ) where
 
 import GHC.Generics
@@ -65,6 +66,11 @@ getDBErrorCode (InvalidVersion _)    = 1001
 getDBErrorCode (VersionMismatch _ _) = 1002
 getDBErrorCode NeedIdAndVersion      = 1003
 
+dbErrorToString :: DBError -> OutgoingError
+dbErrorToString db@(ItemNotFound _)      = OutgoingError (getDBErrorCode db) "The note specified could not be found"
+dbErrorToString db@(InvalidVersion _)    = OutgoingError (getDBErrorCode db) "The version of the note supplied is invalid"
+dbErrorToString db@NeedIdAndVersion      = OutgoingError (getDBErrorCode db) "The save did not send the expected information to the server"
+dbErrorToString db@(VersionMismatch _ _) = OutgoingError (getDBErrorCode db) "There's a different version of this note on the server. Refresh and try again"
 
 -- JSON Encode/Decode
 
