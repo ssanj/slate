@@ -62,11 +62,12 @@ saveExitingNote dbNote con = do
             (_, False) -> pure . Left $ VersionMismatch oldVersion version_
 
 saveNewNote :: NewDBNote -> Connection -> IO NoteIdVersion
-saveNewNote (NewDBNote message) con = do
-     execute con "INSERT INTO SCRIB (MESSAGE) VALUES (?)" (Only (message :: T.Text))
-     let noteIdIO       = (pure . fromIntegral . toInteger <$> (lastInsertRowId con)) :: IO NoteId
-         noteVersionIO  = (pure . pure $ minVersion) :: IO NoteVersion
-     liftA2 NoteIdVersion  noteIdIO noteVersionIO
+saveNewNote newDBNote con = do
+  let message = getNewDBNoteText newDBNote
+  execute con "INSERT INTO SCRIB (MESSAGE) VALUES (?)" (Only (message :: T.Text))
+  let noteIdIO       = (pure . fromIntegral . toInteger <$> (lastInsertRowId con)) :: IO NoteId
+      noteVersionIO  = (pure . pure $ minVersion) :: IO NoteVersion
+  liftA2 NoteIdVersion  noteIdIO noteVersionIO
 
 newtype FetchSize = FetchSize { _fetchSize :: Int }
 

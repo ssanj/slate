@@ -8,6 +8,7 @@ module Model.DBNote
           -- Data types
 
           DBNote
+       ,  NewDBNote
        ,  NoteId
        ,  NoteVersion
        ,  NoteIdVersion(..)
@@ -17,6 +18,7 @@ module Model.DBNote
 
        ,  getDBNote
        ,  getNoteText
+       ,  getNewDBNoteText
 
         -- CONSTRUCTORS
 
@@ -24,13 +26,15 @@ module Model.DBNote
        ,  createDBNote
        ,  mkNoteId
        ,  mkNoteVersion
+       ,  mkNewDBNote
        ) where
 
 import Prelude hiding (null)
 import Data.Text
 import Data.Aeson
 
-import Database.SQLite.Simple (ToRow(..), FromRow(..), field)
+import Database.SQLite.Simple (ToRow(..), FromRow(..), SQLData(SQLText), field)
+
 import Data.Tagged (Tagged(..))
 import Model (DBError(NoteTextIsEmpty))
 
@@ -42,11 +46,20 @@ type TInt s = Tagged s Int
 type NoteId = TInt NoteIdTag
 type NoteVersion = TInt VersionTag
 
-data NoteText = NoteText Text
+data NoteText = NoteText Text deriving stock (Eq, Show)
 
-data NoteIdVersion = NoteIdVersion { _noteIdVersionNoteId :: NoteId, _noteIdVersionVersion :: NoteVersion }
+data NoteIdVersion =
+  NoteIdVersion {
+    _noteIdVersionNoteId :: NoteId
+  , _noteIdVersionVersion :: NoteVersion
+  } deriving stock (Eq, Show)
 
-data DBNote = DBNote {  _dbNoteId :: Int, _dbNoteText :: Text, _dbNoteVersion :: Int } deriving stock (Show)
+data DBNote = DBNote { _dbNoteId :: Int, _dbNoteText :: Text, _dbNoteVersion :: Int } deriving stock (Eq, Show)
+
+newtype NewDBNote = NewDBNote {  _newdbNoteText ::NoteText } deriving stock (Eq, Show)
+
+mkNewDBNote :: Text -> Either DBError NewDBNote
+mkNewDBNote noteText = NewDBNote <$> createNoteText noteText
 
 mkNoteId :: Int -> NoteId
 mkNoteId = Tagged
@@ -59,6 +72,9 @@ getDBNote (DBNote noteId noteText noteVersion) = ((Tagged noteId), (NoteText not
 
 getNoteText :: NoteText -> Text
 getNoteText (NoteText noteText) = noteText
+
+getNewDBNoteText :: NewDBNote -> Text
+getNewDBNoteText (NewDBNote noteText) = getNoteText noteText
 
 createDBNote :: NoteId -> Text -> NoteVersion -> Either DBError DBNote
 createDBNote noteId noteText noteVersion =
@@ -84,3 +100,7 @@ instance ToJSON NoteIdVersion where
         "noteId"      .= (unTagged . _noteIdVersionNoteId $ noteIdVersion :: Int)
       , "noteVersion" .= (unTagged . _noteIdVersionVersion $ noteIdVersion :: Int)
       ]
+
+-- Only allow going to the db without an id, not the other way around
+instance ToRow NewDBNote where
+  toRow (NewDBNote (NoteText message_)) = [SQLText message_]

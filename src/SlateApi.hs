@@ -63,12 +63,11 @@ jsonResponse st value = SC.json value >> status st
 
 saveNote :: IncomingNote -> Connection -> IO (Either DBError NoteIdVersion)
 saveNote (IncomingNote noteText (Just noteId) (Just version)) con =
-  case createDBNote (mkNoteId noteId) noteText (mkNoteVersion version) of
-    Left x       -> pure $ Left x
-    Right dbNote -> saveExitingNote dbNote con
-
+  let dbNoteE = createDBNote (mkNoteId noteId) noteText (mkNoteVersion version)
+  in either (pure . Left) (flip saveExitingNote $ con) dbNoteE
 saveNote (IncomingNote noteText Nothing Nothing) con =
-    pure <$> (saveNewNote (NewDBNote noteText) con)
+    let newDBNoteE = mkNewDBNote noteText
+    in either (pure . Left) (\dbNote -> Right <$> (saveNewNote dbNote con)) newDBNoteE
 saveNote _ _ = pure . Left $ NeedIdAndVersion
 
 searchForNotes :: T.Text -> Connection -> IO [OutgoingNote]

@@ -8,7 +8,6 @@ module Model
           -- Data types
           IncomingNote(..)
        ,  OutgoingNote(..)
-       ,  NewDBNote(..)
        ,  ApiKey(..)
        ,  DBError(..)
        ,  OutgoingError(..)
@@ -22,7 +21,6 @@ import GHC.Generics
 import Data.Aeson
 
 import Data.Aeson.Casing (aesonDrop, camelCase)
-import Database.SQLite.Simple (ToRow(..), SQLData(..))
 
 import qualified Data.Text                     as T
 
@@ -33,8 +31,6 @@ data OutgoingNote = OutgoingNote { _outgoingNoteText :: T.Text, _outgoingNoteId 
 data IncomingNote = IncomingNote { _incomingNoteText :: T.Text, _incomingNoteId :: Maybe Int, _incomingNoteVersion :: Maybe Int } deriving stock (Generic, Show)
 
 data OutgoingError = OutgoingError { _outgoingErrorId :: Int, _outgoingErrorMessage :: T.Text } deriving stock (Generic, Show)
-
-newtype NewDBNote = NewDBNote {  _newdbNoteText :: T.Text } deriving stock (Show)
 
 newtype ApiKey = ApiKey { _apiKey :: T.Text } deriving stock (Eq, Show)
 
@@ -82,9 +78,5 @@ instance FromJSON IncomingNote where
 
 instance ToJSON OutgoingError where
    toEncoding = genericToEncoding outgoingJsonOptions
-
--- Only allow going to the db without an id, not the other way around
-instance ToRow NewDBNote where
-  toRow (NewDBNote message_) = [SQLText message_]
 
 
