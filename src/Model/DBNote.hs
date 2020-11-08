@@ -46,7 +46,7 @@ type TInt s = Tagged s Int
 type NoteId = TInt NoteIdTag
 type NoteVersion = TInt VersionTag
 
-data NoteText = NoteText Text deriving stock (Eq, Show)
+newtype NoteText = NoteText Text deriving stock (Eq, Show)
 
 data NoteIdVersion =
   NoteIdVersion {
@@ -94,11 +94,11 @@ instance ToRow DBNote where
   toRow (DBNote id_ message_ version_) = toRow (id_, message_, version_)
 
 instance ToJSON NoteIdVersion where
-  toJSON noteIdVersion =
+  toJSON (NoteIdVersion noteId noteVersion) =
     object
       [
-        "noteId"      .= (unTagged . _noteIdVersionNoteId $ noteIdVersion :: Int)
-      , "noteVersion" .= (unTagged . _noteIdVersionVersion $ noteIdVersion :: Int)
+        "noteId"      .= noteId
+      , "noteVersion" .= noteVersion
       ]
 
 -- Only allow going to the db without an id, not the other way around
