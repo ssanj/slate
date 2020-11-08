@@ -9,13 +9,9 @@ module Model
           IncomingNote(..)
        ,  OutgoingNote(..)
        ,  NewDBNote(..)
-       ,  DBNote(..)
        ,  ApiKey(..)
        ,  DBError(..)
        ,  OutgoingError(..)
-       ,  NoteIdVersion(..)
-       ,  NoteId
-       ,  NoteVersion
 
          -- Functions
        ,  getDBErrorCode
@@ -24,10 +20,9 @@ module Model
 
 import GHC.Generics
 import Data.Aeson
-import Data.Tagged (Tagged(..))
 
 import Data.Aeson.Casing (aesonDrop, camelCase)
-import Database.SQLite.Simple (ToRow(..), FromRow(..), field, SQLData(..))
+import Database.SQLite.Simple (ToRow(..), SQLData(..))
 
 import qualified Data.Text                     as T
 
@@ -39,25 +34,14 @@ data IncomingNote = IncomingNote { _incomingNoteText :: T.Text, _incomingNoteId 
 
 data OutgoingError = OutgoingError { _outgoingErrorId :: Int, _outgoingErrorMessage :: T.Text } deriving stock (Generic, Show)
 
-data DBNote = DBNote {  _dbNoteId :: Int, _dbNoteText :: T.Text, _dbNoteVersion :: Int } deriving stock (Show)
-
 newtype NewDBNote = NewDBNote {  _newdbNoteText :: T.Text } deriving stock (Show)
 
 newtype ApiKey = ApiKey { _apiKey :: T.Text } deriving stock (Eq, Show)
 
-type TInt s = Tagged s Int
-
-data NoteIdTag
-data VersionTag
-
-type NoteId = TInt NoteIdTag
-type NoteVersion = TInt VersionTag
-
-data NoteIdVersion = NoteIdVersion { _noteIdVersionNoteId :: NoteId, _noteIdVersionVersion :: NoteVersion }
-
 data DBError = ItemNotFound Int
              | InvalidVersion Int
              | VersionMismatch Int Int
+             | NoteTextIsEmpty
              | NeedIdAndVersion deriving stock (Eq, Show)
 
 getDBErrorCode :: DBError -> Int
@@ -65,12 +49,14 @@ getDBErrorCode (ItemNotFound _)      = 1000
 getDBErrorCode (InvalidVersion _)    = 1001
 getDBErrorCode (VersionMismatch _ _) = 1002
 getDBErrorCode NeedIdAndVersion      = 1003
+getDBErrorCode NoteTextIsEmpty       = 1004
 
 dbErrorToString :: DBError -> OutgoingError
 dbErrorToString db@(ItemNotFound _)      = OutgoingError (getDBErrorCode db) "The note specified could not be found"
 dbErrorToString db@(InvalidVersion _)    = OutgoingError (getDBErrorCode db) "The version of the note supplied is invalid"
 dbErrorToString db@NeedIdAndVersion      = OutgoingError (getDBErrorCode db) "The save did not send the expected information to the server"
 dbErrorToString db@(VersionMismatch _ _) = OutgoingError (getDBErrorCode db) "There's a different version of this note on the server. Refresh and try again"
+dbErrorToString db@(NoteTextIsEmpty)     = OutgoingError (getDBErrorCode db) "The note supplied does not have any text. Please add some text and try again"
 
 -- JSON Encode/Decode
 
@@ -96,22 +82,6 @@ instance FromJSON IncomingNote where
 
 instance ToJSON OutgoingError where
    toEncoding = genericToEncoding outgoingJsonOptions
-
-instance ToJSON NoteIdVersion where
-  toJSON noteIdVersion =
-    object
-      [
-        "noteId"      .= (unTagged . _noteIdVersionNoteId $ noteIdVersion :: Int)
-      , "noteVersion" .= (unTagged . _noteIdVersionVersion $ noteIdVersion :: Int)
-      ]
-
--- DB FromRow/ToRow
-
-instance FromRow DBNote where
-  fromRow = DBNote <$> field <*> field <*> field
-
-instance ToRow DBNote where
-  toRow (DBNote id_ message_ version_) = toRow (id_, message_, version_)
 
 -- Only allow going to the db without an id, not the other way around
 instance ToRow NewDBNote where

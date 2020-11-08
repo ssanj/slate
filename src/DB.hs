@@ -14,7 +14,10 @@ module DB
        ) where
 
 import Model
+import Model.DBNote
 import Database.SQLite.Simple
+
+import Data.Tagged (untag)
 import Control.Applicative (liftA2)
 import qualified Data.Text  as T
 
@@ -28,7 +31,11 @@ minVersion = 1
 
 --TODO: Run this in a transaction
 saveExitingNote :: DBNote -> Connection -> IO (Either DBError NoteIdVersion)
-saveExitingNote (DBNote id_ message_ version_) con = do
+saveExitingNote dbNote con = do
+    let (noteId, noteMessage, noteVersion) = getDBNote dbNote
+        id_      = untag noteId
+        version_ = untag noteVersion
+        message_ = getNoteText noteMessage
     -- let versions = [1] :: [Int]
     versions <-  query con "SELECT VERSION FROM SCRIB WHERE ID = ?" (Only (id_ :: Int)) :: IO [Only Int]
        -- queryNamed con "SELECT VERSION FROM SCRIB WHERE ID = :id" [":id" := id_]

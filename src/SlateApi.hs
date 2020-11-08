@@ -12,12 +12,14 @@ module SlateApi
 import Server
 import DB
 import Model
+import Model.DBNote
+import Web.Scotty         hiding    (json, Options)
 
-import Control.Monad.IO.Class (liftIO)
-import Web.Scotty hiding (json, Options)
-import Data.Aeson (ToJSON)
-import Database.SQLite.Simple (Connection, withTransaction, withConnection)
-import Network.HTTP.Types.Status (Status, created201, ok200, status400)
+import Control.Monad.IO.Class       (liftIO)
+import Data.Aeson                   (ToJSON)
+import Database.SQLite.Simple       (Connection, withTransaction, withConnection)
+import Network.HTTP.Types.Status    (Status, created201, ok200, status400)
+import Data.Tagged                  (untag)
 
 import qualified Web.Scotty   as SC (json)
 import qualified Data.Text    as T
@@ -61,9 +63,12 @@ jsonResponse st value = SC.json value >> status st
 
 saveNote :: IncomingNote -> Connection -> IO (Either DBError NoteIdVersion)
 saveNote (IncomingNote noteText (Just noteId) (Just version)) con =
-  saveExitingNote (DBNote noteId noteText version) con
+  case createDBNote (mkNoteId noteId) noteText (mkNoteVersion version) of
+    Left x       -> pure $ Left x
+    Right dbNote -> saveExitingNote dbNote con
+
 saveNote (IncomingNote noteText Nothing Nothing) con =
-   pure <$> (saveNewNote (NewDBNote noteText) con)
+    pure <$> (saveNewNote (NewDBNote noteText) con)
 saveNote _ _ = pure . Left $ NeedIdAndVersion
 
 searchForNotes :: T.Text -> Connection -> IO [OutgoingNote]
@@ -73,4 +78,6 @@ retrieveTopNotes :: Connection -> IO [OutgoingNote]
 retrieveTopNotes con = fmap (fmap createNote) (fetchNotes maxFetchSize con)
 
 createNote :: DBNote -> OutgoingNote
-createNote (DBNote noteId noteText noteVersion) = OutgoingNote noteText noteId noteVersion
+createNote dbNote =
+  let (noteId, noteText, noteVersion) = getDBNote dbNote
+  in OutgoingNote (getNoteText noteText) (untag noteId) (untag noteVersion)
