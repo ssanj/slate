@@ -91,3 +91,6 @@ tests:
     - tasty-hunit
     - tasty-hedgehog
     - hedgehog
+    - tagged
+    - sqlite-simple
+    - text
