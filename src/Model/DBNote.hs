@@ -20,6 +20,8 @@ module Model.DBNote
        ,  getNoteText
        ,  getNewDBNoteText
        ,  getDBNoteText
+       ,  getNoteId
+       ,  getNoteVersion
 
         -- CONSTRUCTORS
 
@@ -36,7 +38,7 @@ import Data.Aeson
 
 import Database.SQLite.Simple (ToRow(..), FromRow(..), SQLData(SQLText), field)
 
-import Data.Tagged (Tagged(..))
+import Data.Tagged (Tagged(..), untag)
 import Model (DBError(NoteTextIsEmpty))
 
 data NoteIdTag
@@ -54,6 +56,7 @@ data NoteIdVersion =
     _noteIdVersionNoteId :: NoteId
   , _noteIdVersionVersion :: NoteVersion
   } deriving stock (Eq, Show)
+
 
 data DBNote = DBNote { _dbNoteId :: Int, _dbNoteText :: Text, _dbNoteVersion :: Int } deriving stock (Eq, Show)
 
@@ -90,6 +93,12 @@ createNoteText :: Text -> Either DBError NoteText
 createNoteText noteText =
   if null noteText then Left NoteTextIsEmpty
   else Right $ NoteText noteText
+
+getNoteId :: NoteIdVersion -> Int
+getNoteId = untag . _noteIdVersionNoteId
+
+getNoteVersion :: NoteIdVersion -> Int
+getNoteVersion = untag . _noteIdVersionVersion
 
 -- DB FromRow/ToRow
 

@@ -6,11 +6,12 @@ module DBSpec where
 -- import qualified Hedgehog.Gen          as Gen
 -- import qualified Hedgehog.Range        as Range
 
-import Test.Tasty.HUnit ((@?=), Assertion)
-import DB               (fetchNotes, fetchSize, searchNotes)
-import Model.DBNote     (getDBNoteText)
-import Data.Foldable    (traverse_)
-import Data.Text        (Text)
+import Test.Tasty.HUnit       ((@?=), Assertion)
+import DB                     (fetchNotes, fetchSize, searchNotes, saveNewNote)
+import Model.DBNote           (getDBNoteText, mkNewDBNote, getNoteId, getNoteVersion)
+import Data.Foldable          (traverse_)
+import Data.Text              (Text)
+import Database.SQLite.Simple (query, Only(..))
 
 import Scaffold
 
@@ -23,14 +24,38 @@ import Scaffold
 unit_fetchNotes :: Assertion
 unit_fetchNotes = dbTest testDatabaseName $ DBTest createSchema insertSeedDataFetchNotes assert_fetchNotes deleteSchema
 
+unit_fetchNotes_when_no_notes :: Assertion
+unit_fetchNotes_when_no_notes = dbTest testDatabaseName $ DBTest createSchema emptyNotes assert_fetchNotes_when_no_notes deleteSchema
+
 unit_searchNotes :: Assertion
 unit_searchNotes = dbTest testDatabaseName $ DBTest createSchema insertSeedDataSearchNotes assert_searchNotes deleteSchema
 
 unit_searchNotes_no_matches :: Assertion
 unit_searchNotes_no_matches = dbTest testDatabaseName $ DBTest createSchema emptyNotes assert_no_searchNotes deleteSchema
 
+unit_insert_new_note :: Assertion
+unit_insert_new_note = dbTest testDatabaseName $ DBTest createSchema insertSeedDataFetchNotes assert_insert_new_note deleteSchema
+
 
 -- ASSERTIONS ACTIONS
+
+
+assert_insert_new_note :: SeededDB -> DBAction ((), CleanUp)
+assert_insert_new_note _ = \con -> do
+  let newNoteE = mkNewDBNote "Some very unique text"
+  case newNoteE of
+    Left x -> runAssertionFailure (show x)
+    Right newNote -> do
+      noteIdAndVersion <- saveNewNote newNote con
+      let nid = getNoteId noteIdAndVersion
+          nv  = getNoteVersion noteIdAndVersion
+      notes <- query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE ID = ?" (Only nid)
+      case notes of
+        [] -> runAssertionFailure $ "expected a matching note with id: " <> (show nid)
+        [note] -> do
+          nv @?= 1
+          runAssertion $ (getDBNoteText note) @?= "Some very unique text"
+        tooManyNotes -> runAssertionFailure $ "expected one matching note with id: " <> (show nid) <> "but got many: " <> (show tooManyNotes)
 
 
 assert_fetchNotes :: SeededDB -> DBAction ((), CleanUp)
@@ -41,6 +66,14 @@ assert_fetchNotes _ = \con -> do
     (note:_) -> do
       length notes @?= 1
       runAssertion $ assertDBNote note (@?= "# Another note\nMore and more")
+
+assert_fetchNotes_when_no_notes :: SeededDB -> DBAction ((), CleanUp)
+assert_fetchNotes_when_no_notes _ = \con -> do
+  notes <- fetchNotes (fetchSize 1) con
+  case notes of
+    []           -> runAssertionSuccess
+    tooManyNotes -> runAssertionFailure $ "expected no matching notes, but got many: " <> (show tooManyNotes)
+
 
 assert_searchNotes :: SeededDB -> DBAction ((), CleanUp)
 assert_searchNotes _ = \con -> do
