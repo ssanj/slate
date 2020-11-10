@@ -8,6 +8,7 @@ import Data.Tagged       (Tagged(..), untag)
 import Model.DBNote     (DBNote, getDBNote, getNoteText)
 import Data.Text        (Text, pack)
 import Control.Exception (bracket)
+import Test.Tasty.HUnit (assertFailure)
 
 data InitialisedTag
 data SeededTag
@@ -88,3 +89,12 @@ insertMessageNumbered item = \con ->
 
 deleteSchema :: CleanUp -> DBAction ()
 deleteSchema _ con= execute_ con "DROP TABLE IF EXISTS SCRIB"
+
+runAssertion :: IO a -> IO (a, CleanUp)
+runAssertion action = (\a -> (a, AssertionRun)) <$> action
+
+runAssertionFailure :: String -> IO ((), CleanUp)
+runAssertionFailure = assertFailure
+
+runAssertionSuccess :: IO ((), CleanUp)
+runAssertionSuccess = pure ((), AssertionRun)

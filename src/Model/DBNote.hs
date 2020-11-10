@@ -19,6 +19,7 @@ module Model.DBNote
        ,  getDBNote
        ,  getNoteText
        ,  getNewDBNoteText
+       ,  getDBNoteText
 
         -- CONSTRUCTORS
 
@@ -72,6 +73,11 @@ getDBNote (DBNote noteId noteText noteVersion) = ((Tagged noteId), (NoteText not
 
 getNoteText :: NoteText -> Text
 getNoteText (NoteText noteText) = noteText
+
+getDBNoteText :: DBNote -> Text
+getDBNoteText dbNote =
+  let (_, note, _) = getDBNote dbNote
+  in getNoteText note
 
 getNewDBNoteText :: NewDBNote -> Text
 getNewDBNoteText (NewDBNote noteText) = getNoteText noteText

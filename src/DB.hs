@@ -86,4 +86,4 @@ fetchNotes :: FetchSize -> Connection -> IO [DBNote]
 fetchNotes (FetchSize size) con = query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE MESSAGE <> '' ORDER BY UPDATED_AT DESC LIMIT (?)" (Only size):: IO [DBNote]
 
 searchNotes :: T.Text -> Connection -> IO [DBNote]
-searchNotes searchCriteria con = query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE MESSAGE LIKE (?)" (Only ("%" <> searchCriteria <> "%")) :: IO [DBNote]
+searchNotes searchCriteria con = query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE MESSAGE LIKE (?) ORDER BY UPDATED_AT DESC" (Only ("%" <> searchCriteria <> "%")) :: IO [DBNote]
