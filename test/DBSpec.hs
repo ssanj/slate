@@ -15,26 +15,21 @@ import Database.SQLite.Simple (query, Only(..))
 
 import Scaffold
 
--- hprop_equality :: H.Property
--- hprop_equality =
---   H.property $ do
---     randomString <- H.forAll $ Gen.text (Range.linear 0 100) Gen.alpha
---     randomString H.=== randomString
 
 unit_fetchNotes :: Assertion
-unit_fetchNotes = dbTest testDatabaseName $ DBTest createSchema insertSeedDataFetchNotes assert_fetchNotes deleteSchema
+unit_fetchNotes = dbNoteTest insertSeedDataFetchNotes assert_fetchNotes
 
 unit_fetchNotes_when_no_notes :: Assertion
-unit_fetchNotes_when_no_notes = dbTest testDatabaseName $ DBTest createSchema emptyNotes assert_fetchNotes_when_no_notes deleteSchema
+unit_fetchNotes_when_no_notes = dbNoteTest emptyNotes assert_fetchNotes_when_no_notes
 
 unit_searchNotes :: Assertion
-unit_searchNotes = dbTest testDatabaseName $ DBTest createSchema insertSeedDataSearchNotes assert_searchNotes deleteSchema
+unit_searchNotes = dbNoteTest insertSeedDataSearchNotes assert_searchNotes
 
 unit_searchNotes_no_matches :: Assertion
-unit_searchNotes_no_matches = dbTest testDatabaseName $ DBTest createSchema emptyNotes assert_no_searchNotes deleteSchema
+unit_searchNotes_no_matches = dbNoteTest emptyNotes assert_no_searchNotes
 
 unit_insert_new_note :: Assertion
-unit_insert_new_note = dbTest testDatabaseName $ DBTest createSchema insertSeedDataFetchNotes assert_insert_new_note deleteSchema
+unit_insert_new_note = dbNoteTest insertSeedDataFetchNotes assert_insert_new_note
 
 
 -- ASSERTIONS ACTIONS
@@ -69,7 +64,7 @@ assert_fetchNotes _ = \con -> do
 
 assert_fetchNotes_when_no_notes :: SeededDB -> DBAction ((), CleanUp)
 assert_fetchNotes_when_no_notes _ = \con -> do
-  notes <- fetchNotes (fetchSize 1) con
+  notes <- fetchNotes (fetchSize 10) con
   case notes of
     []           -> runAssertionSuccess
     tooManyNotes -> runAssertionFailure $ "expected no matching notes, but got many: " <> (show tooManyNotes)

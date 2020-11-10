@@ -4,11 +4,11 @@ module Scaffold where
 
 import Database.SQLite.Simple
 import Database.SQLite.Simple.Time (parseUTCTime)
-import Data.Tagged       (Tagged(..), untag)
-import Model.DBNote     (DBNote, getDBNote, getNoteText)
-import Data.Text        (Text, pack)
-import Control.Exception (bracket)
-import Test.Tasty.HUnit (assertFailure)
+import Data.Tagged                 (Tagged(..), untag)
+import Model.DBNote                (DBNote, getDBNote, getNoteText)
+import Data.Text                   (Text, pack)
+import Control.Exception           (bracket)
+import Test.Tasty.HUnit            (assertFailure, Assertion)
 
 data InitialisedTag
 data SeededTag
@@ -98,3 +98,6 @@ runAssertionFailure = assertFailure
 
 runAssertionSuccess :: IO ((), CleanUp)
 runAssertionSuccess = pure ((), AssertionRun)
+
+dbNoteTest :: (InitialisedDB -> DBAction ((), SeededDB)) -> (SeededDB -> DBAction ((), CleanUp)) -> Assertion
+dbNoteTest seedF assertF = dbTest testDatabaseName $ DBTest createSchema seedF assertF deleteSchema
