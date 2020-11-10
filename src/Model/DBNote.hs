@@ -22,6 +22,8 @@ module Model.DBNote
        ,  getDBNoteText
        ,  getNoteId
        ,  getNoteVersion
+       ,  getDBNoteId
+       ,  getDBNoteVersion
 
         -- CONSTRUCTORS
 
@@ -81,6 +83,12 @@ getDBNoteText :: DBNote -> Text
 getDBNoteText dbNote =
   let (_, note, _) = getDBNote dbNote
   in getNoteText note
+
+getDBNoteId :: DBNote -> Int
+getDBNoteId = _dbNoteId
+
+getDBNoteVersion:: DBNote -> Int
+getDBNoteVersion= _dbNoteVersion
 
 getNewDBNoteText :: NewDBNote -> Text
 getNewDBNoteText (NewDBNote noteText) = getNoteText noteText

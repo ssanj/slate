@@ -7,12 +7,11 @@ module DBSpec where
 -- import qualified Hedgehog.Range        as Range
 
 import Test.Tasty.HUnit       ((@?=), Assertion)
-import DB                     (fetchNotes, fetchSize, searchNotes, saveNewNote)
-import Model.DBNote           (getDBNoteText, mkNewDBNote, getNoteId, getNoteVersion)
+import DB                     (fetchNotes, fetchSize, searchNotes, saveNewNote, saveExitingNote)
 import Data.Foldable          (traverse_)
 import Data.Text              (Text)
-import Database.SQLite.Simple (query, Only(..))
-
+import Database.SQLite.Simple (execute, query, Only(..))
+import qualified Model.DBNote as D
 import Scaffold
 
 
@@ -31,25 +30,59 @@ unit_searchNotes_no_matches = dbNoteTest emptyNotes assert_no_searchNotes
 unit_insert_new_note :: Assertion
 unit_insert_new_note = dbNoteTest insertSeedDataFetchNotes assert_insert_new_note
 
+unit_insert_existing_note :: Assertion
+unit_insert_existing_note = dbNoteTest emptyNotes assert_insert_existing_note
+
 
 -- ASSERTIONS ACTIONS
 
 
+assert_insert_existing_note :: SeededDB -> DBAction ((), CleanUp)
+assert_insert_existing_note _ = \con -> do
+  execute con "INSERT INTO SCRIB (ID, MESSAGE) VALUES (1000, ?)" (Only ("Some strange message" :: Text))
+  let updatedNoteE = D.createDBNote (D.mkNoteId 1000) "Some message" (D.mkNoteVersion 1)
+  case updatedNoteE of
+    Left x -> runAssertionFailure $ "could not create updated note: " <> (show x)
+    (Right updatedNote) -> do
+      resultE <- saveExitingNote updatedNote con
+      case resultE of
+        Left x2 -> runAssertionFailure $ "could not save existing note: " <> (show x2)
+        (Right noteIdVersion) -> do
+          let noteId = D.getNoteId noteIdVersion
+          noteId                         @?= 1000
+          (D.getNoteVersion noteIdVersion) @?= 2
+          dbNotes <- query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE ID = ?" (Only noteId) :: IO [D.DBNote]
+
+          case dbNotes of
+            [dbNote] ->
+              let assertions =
+                    [
+                      (D.getDBNoteId dbNote)            @?= 1000
+                    , (D.getDBNoteVersion dbNote)       @?= 2
+                    , (D.getDBNoteText dbNote)          @?= "Some message"
+                    ]
+
+              in runAssertion $ sequence_ assertions
+
+            []     -> runAssertionFailure $ "expected to find matching note for id: " <> (show noteId)
+            xs     -> runAssertionFailure $ "expected to find one match for note for id: " <> (show noteId) <> "but got: " <> (show xs)
+
+
 assert_insert_new_note :: SeededDB -> DBAction ((), CleanUp)
 assert_insert_new_note _ = \con -> do
-  let newNoteE = mkNewDBNote "Some very unique text"
+  let newNoteE = D.mkNewDBNote "Some very unique text"
   case newNoteE of
     Left x -> runAssertionFailure (show x)
     Right newNote -> do
       noteIdAndVersion <- saveNewNote newNote con
-      let nid = getNoteId noteIdAndVersion
-          nv  = getNoteVersion noteIdAndVersion
+      let nid = D.getNoteId noteIdAndVersion
+          nv  = D.getNoteVersion noteIdAndVersion
       notes <- query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE ID = ?" (Only nid)
       case notes of
         [] -> runAssertionFailure $ "expected a matching note with id: " <> (show nid)
         [note] -> do
           nv @?= 1
-          runAssertion $ (getDBNoteText note) @?= "Some very unique text"
+          runAssertion $ (D.getDBNoteText note) @?= "Some very unique text"
         tooManyNotes -> runAssertionFailure $ "expected one matching note with id: " <> (show nid) <> "but got many: " <> (show tooManyNotes)
 
 
@@ -78,7 +111,7 @@ assert_searchNotes _ = \con -> do
     matchedNotes -> do
       let dbNoteNotePairs =
             zip
-              (getDBNoteText <$> matchedNotes)
+              (D.getDBNoteText <$> matchedNotes)
               [
                 -- we ensure the hits are ordered newest updates to oldest
                 "# Whatever you like\nThis is a BloG article about ..." -- match irrespective of case
