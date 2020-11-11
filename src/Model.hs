@@ -25,7 +25,7 @@ import Data.Aeson
 
 import Data.Aeson.Casing (aesonDrop, camelCase)
 
-import qualified Data.Text                     as T
+import qualified Data.Text    as T
 
 
 -- DATA TYPES
@@ -44,6 +44,7 @@ data DBError = ItemNotFound Int
              | VersionMismatch Int Int
              | NoteTextIsEmpty
              | NeedIdAndVersion deriving stock (Eq, Show)
+
 
 getDBErrorCode :: DBError -> Int
 getDBErrorCode (ItemNotFound _)      = 1000

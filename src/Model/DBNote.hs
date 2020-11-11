@@ -15,6 +15,7 @@ module Model.DBNote
        ,  NoteText
        ,  NoteVersionRange(..)
        ,  VersionRange(..)
+       ,  NoteVersionEquality(..)
 
           -- GETTERS
 
@@ -39,6 +40,7 @@ module Model.DBNote
          -- UTIL
 
        ,  versionRange
+       ,  sameNoteVersion
 
        ) where
 
@@ -88,6 +90,14 @@ versionRange (VersionRange minR  maxR) noteVersion =
     if version >= minR && version < maxR then ValidNoteVersionRange noteVersion
     else InvalidNoteVersionRange version (VersionRange minR maxR)
 
+
+data NoteVersionEquality = SameNoteVersion NoteVersion
+                         | DifferentNoteVersions NoteVersion NoteVersion deriving stock (Eq, Show)
+
+sameNoteVersion :: NoteVersion -> NoteVersion -> NoteVersionEquality
+sameNoteVersion srcNoteVersion targetNoteVersion =
+  if srcNoteVersion == targetNoteVersion then SameNoteVersion srcNoteVersion
+  else DifferentNoteVersions srcNoteVersion targetNoteVersion
 
 mkNewDBNote :: Text -> Either DBError NewDBNote
 mkNewDBNote noteText = NewDBNote <$> createNoteText noteText

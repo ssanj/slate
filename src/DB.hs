@@ -34,19 +34,16 @@ saveExitingNote :: DBNote -> Connection -> IO (Either DBError NoteIdVersion)
 saveExitingNote dbNote con = do
     let (noteId, noteMessage, noteVersion) = getDBNote dbNote
         id_      = untag noteId
-        version_ = untag noteVersion
         message_ = getNoteText noteMessage
-    -- let versions = [1] :: [Int]
     versions <-  query con "SELECT VERSION FROM SCRIB WHERE ID = ?" (Only (id_ :: Int)) :: IO [Only Int]
-       -- queryNamed con "SELECT VERSION FROM SCRIB WHERE ID = :id" [":id" := id_]
     case versions of
       []    -> pure . Left $ ItemNotFound id_
       ((Only oldVersion):_) ->
         let validVersionRange   = versionRange (VersionRange minVersion maxVersion) noteVersion -- one less than max to allow for one final increment
-            sameVersionAsClient = oldVersion == version_
+            noteVersionEquality = sameNoteVersion (mkNoteVersion oldVersion) noteVersion
         in
-          case (validVersionRange, sameVersionAsClient) of
-            ((ValidNoteVersionRange version), True) ->
+          case (validVersionRange, noteVersionEquality) of
+            ((ValidNoteVersionRange version), (SameNoteVersion _)) ->
               do
                 let newVersion = (untag version) + 1
                 executeNamed con
@@ -59,9 +56,9 @@ saveExitingNote dbNote con = do
                     ]
                 pure . Right $ NoteIdVersion (pure id_) (pure newVersion)
 
-            ((ValidNoteVersionRange version), False)     -> pure . Left $ VersionMismatch oldVersion (untag version)
-            ((InvalidNoteVersionRange version _), True)  -> pure . Left $ InvalidVersion version
-            ((InvalidNoteVersionRange version _), False) -> pure . Left $ InvalidVersion version
+            ((ValidNoteVersionRange _), (DifferentNoteVersions v1 v2))         -> pure . Left $ VersionMismatch (untag v1) (untag v2)
+            ((InvalidNoteVersionRange version _), (SameNoteVersion _ ))        -> pure . Left $ InvalidVersion version
+            ((InvalidNoteVersionRange version _), (DifferentNoteVersions _ _)) -> pure . Left $ InvalidVersion version
 
 
 saveNewNote :: NewDBNote -> Connection -> IO NoteIdVersion
