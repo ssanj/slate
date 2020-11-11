@@ -39,7 +39,7 @@ assertDBNote dbNote assertion =
   in assertion $ getNoteText dbMessage
 
 testDatabaseName :: DBName
-testDatabaseName = Tagged "test.db"
+testDatabaseName = Tagged ":memory:"
 
 getDBName :: DBName -> String
 getDBName = untag
