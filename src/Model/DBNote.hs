@@ -13,6 +13,7 @@ module Model.DBNote
        ,  NoteVersion
        ,  NoteIdVersion(..)
        ,  NoteText
+       ,  NoteVersionRange(..)
 
           -- GETTERS
 
@@ -32,6 +33,12 @@ module Model.DBNote
        ,  mkNoteId
        ,  mkNoteVersion
        ,  mkNewDBNote
+
+
+         -- UTIL
+
+       ,  versionRange
+
        ) where
 
 import Prelude hiding (null)
@@ -63,6 +70,17 @@ data NoteIdVersion =
 data DBNote = DBNote { _dbNoteId :: Int, _dbNoteText :: Text, _dbNoteVersion :: Int } deriving stock (Eq, Show)
 
 newtype NewDBNote = NewDBNote {  _newdbNoteText ::NoteText } deriving stock (Eq, Show)
+
+data NoteVersionRange = ValidNoteVersionRange NoteVersion
+                      | InvalidNoteVersionRange Int (Int, Int)
+
+versionRange :: (Int, Int) -> NoteVersion -> NoteVersionRange
+versionRange (minR, maxR) noteVersion =
+  let version = untag noteVersion
+  in
+    if version >= minR && version < maxR then ValidNoteVersionRange noteVersion
+    else InvalidNoteVersionRange version (minR, maxR)
+
 
 mkNewDBNote :: Text -> Either DBError NewDBNote
 mkNewDBNote noteText = NewDBNote <$> createNoteText noteText
