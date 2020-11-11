@@ -83,7 +83,7 @@ data NoteIdVersion =
   , _noteIdVersionVersion :: NoteVersion
   } deriving stock (Eq, Show)
 
-
+-- TODO: We could simply use NoteId, NoteText and NoteVersion here
 data DBNote = DBNote { _dbNoteId :: Int, _dbNoteText :: Text, _dbNoteVersion :: Int } deriving stock (Eq, Show)
 
 newtype NewDBNote = NewDBNote {  _newdbNoteText ::NoteText } deriving stock (Eq, Show)
@@ -103,6 +103,7 @@ data NoteVersionEquality = SameNoteVersion NoteVersion
 data UpdateAction = DoUpdate NoteId NoteText NoteVersionFromDB UpdatedNoteVersion
                   | VersionMismatchError NoteVersion NoteVersion
                   | InvalidVersionRangeError Int
+                  | NoMatchingNoteFound NoteId
 
 
 versionRange :: VersionRange -> NoteVersion -> NoteVersionRange
@@ -118,11 +119,12 @@ sameNoteVersion srcNoteVersion targetNoteVersion =
   if srcNoteVersion == targetNoteVersion then SameNoteVersion srcNoteVersion
   else DifferentNoteVersions srcNoteVersion targetNoteVersion
 
-determineUpdate :: DBNote -> NoteVersionFromDB -> VersionRange -> UpdateAction
-determineUpdate dbNote dbVersion versionLimits =
-  let (noteId, noteMessage, noteVersion) = getDBNote dbNote
-      validVersionRange                  = versionRange versionLimits noteVersion
-      noteVersionEquality                = sameNoteVersion (retag dbVersion) noteVersion
+determineUpdate :: DBNote -> [NoteVersionFromDB] -> VersionRange -> UpdateAction
+determineUpdate dbNote [] _                          = NoMatchingNoteFound (mkNoteId . getDBNoteId $ dbNote)
+determineUpdate dbNote (dbVersion : _) versionLimits =
+  let (noteId, noteMessage, noteVersion)             = getDBNote dbNote
+      validVersionRange                              = versionRange versionLimits noteVersion
+      noteVersionEquality                            = sameNoteVersion (retag dbVersion) noteVersion
   in
     case (validVersionRange, noteVersionEquality) of
       ((ValidNoteVersionRange version),     (SameNoteVersion _))           -> DoUpdate noteId noteMessage dbVersion (retag $ (+1) <$> version)

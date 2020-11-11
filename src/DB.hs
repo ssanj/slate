@@ -33,22 +33,20 @@ saveExitingNote :: DBNote -> Connection -> IO (Either DBError NoteIdVersion)
 saveExitingNote dbNote con = do
     let (noteId, _, _) = getDBNote dbNote
     versions <-  query con "SELECT VERSION FROM SCRIB WHERE ID = ?" (Only noteId) :: IO [Only NoteVersionFromDB]
-    case versions of
-      []    -> pure . Left $ ItemNotFound (getInt noteId)
-      ((Only oldVersion):_) ->
+    let dbVersions    = (\(Only v) -> v) <$> versions
+        updateAction = determineUpdate dbNote dbVersions (VersionRange minVersion maxVersion)
+    case updateAction of
+      NoMatchingNoteFound noteId_ -> pure . Left $ ItemNotFound (getInt noteId_)
 
-        let updateAction = determineUpdate dbNote oldVersion (VersionRange minVersion maxVersion)
-        in
-          case updateAction of
-            (DoUpdate noteId_ noteMessage dbVersion newVersion) ->
-              updateNote noteId_ noteMessage dbVersion newVersion con >>
-                (pure . Right $ mkUpdatedNoteIdVersion noteId_ newVersion)
+      (DoUpdate noteId_ noteMessage dbVersion newVersion) ->
+        updateNote noteId_ noteMessage dbVersion newVersion con >>
+          (pure . Right $ mkUpdatedNoteIdVersion noteId_ newVersion)
 
-            (VersionMismatchError v1 v2) ->
-              pure . Left $ VersionMismatch (getInt v1) (getInt v2)
+      (VersionMismatchError v1 v2) ->
+        pure . Left $ VersionMismatch (getInt v1) (getInt v2)
 
-            (InvalidVersionRangeError version) ->
-              pure . Left $ InvalidVersion version
+      (InvalidVersionRangeError version) ->
+        pure . Left $ InvalidVersion version
 
 
 updateNote :: NoteId -> NoteText -> NoteVersionFromDB  -> UpdatedNoteVersion -> Connection -> IO ()
