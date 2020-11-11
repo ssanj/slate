@@ -29,6 +29,7 @@ module Model.DBNote
        ,  getNoteVersion
        ,  getDBNoteId
        ,  getDBNoteVersion
+       ,  getInt
 
         -- CONSTRUCTORS
 
@@ -115,6 +116,9 @@ mkNoteId = Tagged
 
 mkNoteVersion :: Int -> NoteVersion
 mkNoteVersion = Tagged
+
+getInt :: TInt a -> Int
+getInt = untag
 
 getDBNote :: DBNote -> (NoteId, NoteText, NoteVersion)
 getDBNote (DBNote noteId noteText noteVersion) = ((Tagged noteId), (NoteText noteText), (Tagged noteVersion))

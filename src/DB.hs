@@ -56,7 +56,7 @@ saveExitingNote dbNote con = do
                     ]
                 pure . Right $ mkNoteIdVersion noteId newVersion
 
-            ((ValidNoteVersionRange _), (DifferentNoteVersions v1 v2))         -> pure . Left $ VersionMismatch (untag v1) (untag v2)
+            ((ValidNoteVersionRange _), (DifferentNoteVersions v1 v2))         -> pure . Left $ VersionMismatch (getInt v1) (getInt v2)
             ((InvalidNoteVersionRange version _), (SameNoteVersion _ ))        -> pure . Left $ InvalidVersion version
             ((InvalidNoteVersionRange version _), (DifferentNoteVersions _ _)) -> pure . Left $ InvalidVersion version
 
