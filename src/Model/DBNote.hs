@@ -175,6 +175,9 @@ instance ToJSON NoteIdVersion where
 instance ToRow NewDBNote where
   toRow (NewDBNote (NoteText message_)) = [SQLText message_]
 
+instance ToField NoteText where
+  toField (NoteText noteText)= toField noteText
+
 instance ToField a => ToField (Tagged x a) where
   toField = toField . untag
 

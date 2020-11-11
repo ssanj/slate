@@ -32,12 +32,11 @@ minVersion = 1
 saveExitingNote :: DBNote -> Connection -> IO (Either DBError NoteIdVersion)
 saveExitingNote dbNote con = do
     let (noteId, noteMessage, noteVersion) = getDBNote dbNote
-        message_ = getNoteText noteMessage
     versions <-  query con "SELECT VERSION FROM SCRIB WHERE ID = ?" (Only noteId) :: IO [Only NoteVersion]
     case versions of
       []    -> pure . Left $ ItemNotFound (getInt noteId)
       ((Only oldVersion):_) ->
-        let validVersionRange   = versionRange (VersionRange minVersion maxVersion) noteVersion -- one less than max to allow for one final increment
+        let validVersionRange   = versionRange (VersionRange minVersion maxVersion) noteVersion
             noteVersionEquality = sameNoteVersion oldVersion noteVersion
         in
           case (validVersionRange, noteVersionEquality) of
@@ -47,7 +46,7 @@ saveExitingNote dbNote con = do
                 executeNamed con
                   "UPDATE SCRIB SET MESSAGE = :message, VERSION = :newVersion WHERE ID = :id and VERSION = :oldVersion"
                     [
-                      ":message"    := message_
+                      ":message"    := noteMessage
                     , ":id"         := noteId
                     , ":oldVersion" := oldVersion
                     , ":newVersion" := newVersion
