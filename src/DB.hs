@@ -42,13 +42,13 @@ saveExitingNote dbNote con = do
     case versions of
       []    -> pure . Left $ ItemNotFound id_
       ((Only oldVersion):_) ->
-        let validVersionRange   = version_ >= minVersion && version_ < maxVersion -- one less than max to allow for one final increment
+        let validVersionRange   = versionRange (minVersion, maxVersion) noteVersion -- one less than max to allow for one final increment
             sameVersionAsClient = oldVersion == version_
         in
           case (validVersionRange, sameVersionAsClient) of
-            (True, True) ->
+            ((ValidNoteVersionRange version), True) ->
               do
-                let newVersion = version_ + 1
+                let newVersion = (untag version) + 1
                 executeNamed con
                   "UPDATE SCRIB SET MESSAGE = :message, VERSION = :newVersion WHERE ID = :id and VERSION = :oldVersion"
                     [
@@ -58,8 +58,11 @@ saveExitingNote dbNote con = do
                     , ":newVersion" := newVersion
                     ]
                 pure . Right $ NoteIdVersion (pure id_) (pure newVersion)
-            (False, _) -> pure . Left $ InvalidVersion version_
-            (_, False) -> pure . Left $ VersionMismatch oldVersion version_
+
+            ((ValidNoteVersionRange version), False)     -> pure . Left $ VersionMismatch oldVersion (untag version)
+            ((InvalidNoteVersionRange version _), True)  -> pure . Left $ InvalidVersion version
+            ((InvalidNoteVersionRange version _), False) -> pure . Left $ InvalidVersion version
+
 
 saveNewNote :: NewDBNote -> Connection -> IO NoteIdVersion
 saveNewNote newDBNote con = do
