@@ -13,7 +13,7 @@ module Model.DBNote
        ,  NewDBNote
        ,  NoteId
        ,  NoteVersion
-       ,  NoteIdVersion(..)
+       ,  NoteIdVersion
        ,  NoteText
        ,  NoteVersionRange(..)
        ,  VersionRange(..)

@@ -68,7 +68,7 @@ saveNewNote newDBNote con = do
   execute con "INSERT INTO SCRIB (MESSAGE) VALUES (?)" (Only (message :: T.Text))
   let noteIdIO       = (pure . fromIntegral . toInteger <$> (lastInsertRowId con)) :: IO NoteId
       noteVersionIO  = (pure . pure $ minVersion) :: IO NoteVersion
-  liftA2 NoteIdVersion  noteIdIO noteVersionIO
+  liftA2 mkNoteIdVersion noteIdIO noteVersionIO
 
 newtype FetchSize = FetchSize { _fetchSize :: Int }
 
