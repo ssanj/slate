@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE DerivingStrategies  #-}
@@ -35,6 +37,7 @@ module Model.DBNote
        ,  mkNoteId
        ,  mkNoteVersion
        ,  mkNewDBNote
+       ,  mkNoteIdVersion
 
 
          -- UTIL
@@ -49,7 +52,7 @@ import Data.Text
 import Data.Aeson
 
 import Database.SQLite.Simple (ToRow(..), FromRow(..), SQLData(SQLText), field)
-
+import Database.SQLite.Simple.ToField (ToField(..))
 import Data.Tagged (Tagged(..), untag)
 import Model (DBError(NoteTextIsEmpty))
 
@@ -98,6 +101,10 @@ sameNoteVersion :: NoteVersion -> NoteVersion -> NoteVersionEquality
 sameNoteVersion srcNoteVersion targetNoteVersion =
   if srcNoteVersion == targetNoteVersion then SameNoteVersion srcNoteVersion
   else DifferentNoteVersions srcNoteVersion targetNoteVersion
+
+
+mkNoteIdVersion :: NoteId -> NoteVersion -> NoteIdVersion
+mkNoteIdVersion = NoteIdVersion
 
 mkNewDBNote :: Text -> Either DBError NewDBNote
 mkNewDBNote noteText = NewDBNote <$> createNoteText noteText
@@ -162,3 +169,6 @@ instance ToJSON NoteIdVersion where
 -- Only allow going to the db without an id, not the other way around
 instance ToRow NewDBNote where
   toRow (NewDBNote (NoteText message_)) = [SQLText message_]
+
+instance ToField a => ToField (Tagged x a) where
+  toField = toField . untag

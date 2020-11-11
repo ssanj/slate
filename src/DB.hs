@@ -38,9 +38,10 @@ saveExitingNote dbNote con = do
     versions <-  query con "SELECT VERSION FROM SCRIB WHERE ID = ?" (Only (id_ :: Int)) :: IO [Only Int]
     case versions of
       []    -> pure . Left $ ItemNotFound id_
-      ((Only oldVersion):_) ->
+      ((Only currentVersion):_) ->
         let validVersionRange   = versionRange (VersionRange minVersion maxVersion) noteVersion -- one less than max to allow for one final increment
-            noteVersionEquality = sameNoteVersion (mkNoteVersion oldVersion) noteVersion
+            oldVersion          = mkNoteVersion currentVersion
+            noteVersionEquality = sameNoteVersion oldVersion noteVersion
         in
           case (validVersionRange, noteVersionEquality) of
             ((ValidNoteVersionRange version), (SameNoteVersion _)) ->
@@ -50,11 +51,11 @@ saveExitingNote dbNote con = do
                   "UPDATE SCRIB SET MESSAGE = :message, VERSION = :newVersion WHERE ID = :id and VERSION = :oldVersion"
                     [
                       ":message" := message_
-                    , ":id" := id_
+                    , ":id" := noteId
                     , ":oldVersion" := oldVersion
-                    , ":newVersion" := (untag newVersion)
+                    , ":newVersion" := newVersion
                     ]
-                pure . Right $ NoteIdVersion (pure id_) newVersion
+                pure . Right $ mkNoteIdVersion noteId newVersion
 
             ((ValidNoteVersionRange _), (DifferentNoteVersions v1 v2))         -> pure . Left $ VersionMismatch (untag v1) (untag v2)
             ((InvalidNoteVersionRange version _), (SameNoteVersion _ ))        -> pure . Left $ InvalidVersion version
