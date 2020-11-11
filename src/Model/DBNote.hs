@@ -14,6 +14,7 @@ module Model.DBNote
        ,  NoteId
        ,  NoteVersion
        ,  NoteVersionFromDB
+       ,  UpdatedNoteVersion
        ,  NoteIdVersion
        ,  NoteText
        ,  NoteVersionRange(..)
@@ -99,7 +100,7 @@ data VersionRange =
 data NoteVersionEquality = SameNoteVersion NoteVersion
                          | DifferentNoteVersions NoteVersion NoteVersion deriving stock (Eq, Show)
 
-data UpdateAction = DoUpdate NoteId NoteText NoteVersion UpdatedNoteVersion
+data UpdateAction = DoUpdate NoteId NoteText NoteVersionFromDB UpdatedNoteVersion
                   | VersionMismatchError NoteVersion NoteVersion
                   | InvalidVersionRangeError Int
 
@@ -124,7 +125,7 @@ determineUpdate dbNote dbVersion versionLimits =
       noteVersionEquality                = sameNoteVersion (retag dbVersion) noteVersion
   in
     case (validVersionRange, noteVersionEquality) of
-      ((ValidNoteVersionRange version),     (SameNoteVersion _))           -> DoUpdate noteId noteMessage noteVersion (retag $ (+1) <$> version)
+      ((ValidNoteVersionRange version),     (SameNoteVersion _))           -> DoUpdate noteId noteMessage dbVersion (retag $ (+1) <$> version)
       ((ValidNoteVersionRange _),           (DifferentNoteVersions v1 v2)) -> VersionMismatchError v1 v2
       ((InvalidNoteVersionRange version _), (SameNoteVersion _ ))          -> InvalidVersionRangeError version
       ((InvalidNoteVersionRange version _), (DifferentNoteVersions _ _))   -> InvalidVersionRangeError version
