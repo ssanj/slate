@@ -12,9 +12,11 @@ hprop_versionRange :: H.Property
 hprop_versionRange =
   H.property $ do
     minR    <- H.forAll $ Gen.int (Range.linear 0 99)
+    -- inc maxR so that we don't have an instance where minR == maxR
     maxR    <- H.forAll $ Gen.int (Range.linear (minR + 1) 200)
     version <- H.forAll $ D.mkNoteVersion <$> (Gen.int (Range.linear minR maxR))
 
+    -- inc maxR so that we don't have an instance where version <= maxR (we need version < maxR)
     let range = D.versionRange (D.VersionRange minR (maxR + 1)) version
     case range of
       (D.ValidNoteVersionRange noteVersion) -> version H.=== noteVersion
