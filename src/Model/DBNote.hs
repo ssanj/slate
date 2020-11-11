@@ -18,6 +18,7 @@ module Model.DBNote
        ,  NoteVersionRange(..)
        ,  VersionRange(..)
        ,  NoteVersionEquality(..)
+       ,  UpdateAction(..)
 
           -- GETTERS
 
@@ -45,6 +46,7 @@ module Model.DBNote
 
        ,  versionRange
        ,  sameNoteVersion
+       ,  determineUpdate
 
        ) where
 
@@ -55,16 +57,20 @@ import Data.Aeson
 import Database.SQLite.Simple (ToRow(..), FromRow(..), SQLData(SQLText), field)
 import Database.SQLite.Simple.ToField (ToField(..))
 import Database.SQLite.Simple.FromField (FromField(..))
-import Data.Tagged (Tagged(..), untag)
+import Data.Tagged (Tagged(..), untag, retag)
 import Model (DBError(NoteTextIsEmpty))
 
 data NoteIdTag
 data VersionTag
+data UpdatedVersionTag
+data NoteVersionFromDBTag
 
 type TInt s = Tagged s Int
 
 type NoteId = TInt NoteIdTag
 type NoteVersion = TInt VersionTag
+type UpdatedNoteVersion = TInt UpdatedVersionTag
+type NoteVersionFromDB = TInt NoteVersionFromDBTag
 
 newtype NoteText = NoteText Text deriving stock (Eq, Show)
 
@@ -88,6 +94,14 @@ data VersionRange =
   , versionRangeMax :: Int
   } deriving stock (Eq, Show)
 
+data NoteVersionEquality = SameNoteVersion NoteVersion
+                         | DifferentNoteVersions NoteVersion NoteVersion deriving stock (Eq, Show)
+
+data UpdateAction = DoUpdate NoteId NoteText NoteVersion UpdatedNoteVersion
+                  | VersionMismatchError NoteVersion NoteVersion
+                  | InvalidVersionRangeError Int
+
+
 versionRange :: VersionRange -> NoteVersion -> NoteVersionRange
 versionRange (VersionRange minR  maxR) noteVersion =
   let version = untag noteVersion
@@ -96,14 +110,22 @@ versionRange (VersionRange minR  maxR) noteVersion =
     else InvalidNoteVersionRange version (VersionRange minR maxR)
 
 
-data NoteVersionEquality = SameNoteVersion NoteVersion
-                         | DifferentNoteVersions NoteVersion NoteVersion deriving stock (Eq, Show)
-
 sameNoteVersion :: NoteVersion -> NoteVersion -> NoteVersionEquality
 sameNoteVersion srcNoteVersion targetNoteVersion =
   if srcNoteVersion == targetNoteVersion then SameNoteVersion srcNoteVersion
   else DifferentNoteVersions srcNoteVersion targetNoteVersion
 
+determineUpdate :: DBNote -> NoteVersionFromDB -> VersionRange -> UpdateAction
+determineUpdate dbNote dbVersion versionLimits =
+  let (noteId, noteMessage, noteVersion) = getDBNote dbNote
+      validVersionRange                  = versionRange versionLimits noteVersion
+      noteVersionEquality                = sameNoteVersion (retag dbVersion) noteVersion
+  in
+    case (validVersionRange, noteVersionEquality) of
+      ((ValidNoteVersionRange version),     (SameNoteVersion _))           -> DoUpdate noteId noteMessage noteVersion (retag $ (+1) <$> version)
+      ((ValidNoteVersionRange _),           (DifferentNoteVersions v1 v2)) -> VersionMismatchError v1 v2
+      ((InvalidNoteVersionRange version _), (SameNoteVersion _ ))          -> InvalidVersionRangeError version
+      ((InvalidNoteVersionRange version _), (DifferentNoteVersions _ _))   -> InvalidVersionRangeError version
 
 mkNoteIdVersion :: NoteId -> NoteVersion -> NoteIdVersion
 mkNoteIdVersion = NoteIdVersion
