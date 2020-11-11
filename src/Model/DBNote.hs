@@ -103,7 +103,7 @@ data NoteVersionEquality = SameNoteVersion NoteVersion
 data UpdateAction = DoUpdate NoteId NoteText NoteVersionFromDB UpdatedNoteVersion
                   | VersionMismatchError NoteVersion NoteVersion
                   | InvalidVersionRangeError Int
-                  | NoMatchingNoteFound NoteId
+                  | NoMatchingNoteFound NoteId deriving stock (Eq, Show)
 
 
 versionRange :: VersionRange -> NoteVersion -> NoteVersionRange

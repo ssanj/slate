@@ -8,6 +8,9 @@ import qualified Hedgehog.Gen          as Gen
 import qualified Hedgehog.Range        as Range
 import qualified Model.DBNote          as D
 
+import Model.DBNote
+import Test.Tasty.HUnit       ((@?=), Assertion, assertFailure)
+
 hprop_versionRange :: H.Property
 hprop_versionRange =
   H.property $ do
@@ -39,3 +42,18 @@ hprop_versionRange_failure =
               in case range of
                   (D.InvalidNoteVersionRange v r) -> (r H.=== maxMin) >> (v H.=== version)
                   (D.ValidNoteVersionRange _)     -> H.failure
+
+
+unit_determineUpdate_note_not_found :: Assertion
+unit_determineUpdate_note_not_found =
+  let dbNoteE = createDBNote (mkNoteId 1000) "blee" (mkNoteVersion 1)
+  in case dbNoteE of
+      Left x       -> assertFailure (show x)
+      Right dbNote ->
+        let result = determineUpdate dbNote [] undefined
+        in
+          case result of
+            NoMatchingNoteFound noteId -> noteId @?= 1000
+            other -> assertFailure $ "expected NoMatchingNoteFound but got: " <> (show other)
+
+-- determineUpdate :: DBNote -> [NoteVersionFromDB] -> VersionRange -> UpdateAction
