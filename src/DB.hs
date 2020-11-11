@@ -42,7 +42,7 @@ saveExitingNote dbNote con = do
     case versions of
       []    -> pure . Left $ ItemNotFound id_
       ((Only oldVersion):_) ->
-        let validVersionRange   = versionRange (minVersion, maxVersion) noteVersion -- one less than max to allow for one final increment
+        let validVersionRange   = versionRange (VersionRange minVersion maxVersion) noteVersion -- one less than max to allow for one final increment
             sameVersionAsClient = oldVersion == version_
         in
           case (validVersionRange, sameVersionAsClient) of

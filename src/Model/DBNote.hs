@@ -14,6 +14,7 @@ module Model.DBNote
        ,  NoteIdVersion(..)
        ,  NoteText
        ,  NoteVersionRange(..)
+       ,  VersionRange(..)
 
           -- GETTERS
 
@@ -72,14 +73,20 @@ data DBNote = DBNote { _dbNoteId :: Int, _dbNoteText :: Text, _dbNoteVersion :: 
 newtype NewDBNote = NewDBNote {  _newdbNoteText ::NoteText } deriving stock (Eq, Show)
 
 data NoteVersionRange = ValidNoteVersionRange NoteVersion
-                      | InvalidNoteVersionRange Int (Int, Int)
+                      | InvalidNoteVersionRange Int VersionRange deriving stock (Eq, Show)
 
-versionRange :: (Int, Int) -> NoteVersion -> NoteVersionRange
-versionRange (minR, maxR) noteVersion =
+data VersionRange =
+  VersionRange {
+    versionRangeMin :: Int
+  , versionRangeMax :: Int
+  } deriving stock (Eq, Show)
+
+versionRange :: VersionRange -> NoteVersion -> NoteVersionRange
+versionRange (VersionRange minR  maxR) noteVersion =
   let version = untag noteVersion
   in
     if version >= minR && version < maxR then ValidNoteVersionRange noteVersion
-    else InvalidNoteVersionRange version (minR, maxR)
+    else InvalidNoteVersionRange version (VersionRange minR maxR)
 
 
 mkNewDBNote :: Text -> Either DBError NewDBNote

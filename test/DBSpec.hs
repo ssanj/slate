@@ -15,7 +15,7 @@ hprop_versionRange =
     maxR    <- H.forAll $ Gen.int (Range.linear (minR + 1) 200)
     version <- H.forAll $ D.mkNoteVersion <$> (Gen.int (Range.linear minR maxR))
 
-    let range = D.versionRange (minR, maxR) version
+    let range = D.versionRange (D.VersionRange minR maxR) version
     case range of
       (D.ValidNoteVersionRange noteVersion) -> version H.=== noteVersion
       (D.InvalidNoteVersionRange _ _)       -> H.failure
@@ -27,11 +27,11 @@ hprop_versionRange_failure =
     maxR  <- H.forAll $ Gen.int (Range.linear (minR + 1) 200)
     let upperG :: H.Gen Int =  Gen.int (Range.linear maxR (maxR + 100))
         lowerG :: H.Gen Int =  Gen.int (Range.linear (minR - 100) minR)
-        minMax = (minR, maxR)
+        minMax = (D.VersionRange minR maxR)
     versionE <- H.forAll $ Gen.either lowerG upperG
     either (assertVersionRangeFailure minMax) (assertVersionRangeFailure minMax) versionE
       where
-            assertVersionRangeFailure :: (Int, Int) -> Int -> H.PropertyT IO ()
+            assertVersionRangeFailure :: D.VersionRange -> Int -> H.PropertyT IO ()
             assertVersionRangeFailure maxMin version =
               let range = D.versionRange maxMin (D.mkNoteVersion version)
               in case range of
