@@ -13,6 +13,7 @@ module Model.DBNote
        ,  NewDBNote
        ,  NoteId
        ,  NoteVersion
+       ,  NoteVersionFromDB
        ,  NoteIdVersion
        ,  NoteText
        ,  NoteVersionRange(..)
@@ -40,6 +41,7 @@ module Model.DBNote
        ,  mkNoteVersion
        ,  mkNewDBNote
        ,  mkNoteIdVersion
+       ,  mkUpdatedNoteIdVersion
 
 
          -- UTIL
@@ -129,6 +131,9 @@ determineUpdate dbNote dbVersion versionLimits =
 
 mkNoteIdVersion :: NoteId -> NoteVersion -> NoteIdVersion
 mkNoteIdVersion = NoteIdVersion
+
+mkUpdatedNoteIdVersion :: NoteId -> UpdatedNoteVersion -> NoteIdVersion
+mkUpdatedNoteIdVersion nid = mkNoteIdVersion nid . retag
 
 mkNewDBNote :: Text -> Either DBError NewDBNote
 mkNewDBNote noteText = NewDBNote <$> createNoteText noteText

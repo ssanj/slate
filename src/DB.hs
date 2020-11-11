@@ -31,31 +31,52 @@ minVersion = 1
 --TODO: Run this in a transaction
 saveExitingNote :: DBNote -> Connection -> IO (Either DBError NoteIdVersion)
 saveExitingNote dbNote con = do
-    let (noteId, noteMessage, noteVersion) = getDBNote dbNote
-    versions <-  query con "SELECT VERSION FROM SCRIB WHERE ID = ?" (Only noteId) :: IO [Only NoteVersion]
+    let (noteId, _, _) = getDBNote dbNote
+    versions <-  query con "SELECT VERSION FROM SCRIB WHERE ID = ?" (Only noteId) :: IO [Only NoteVersionFromDB]
     case versions of
       []    -> pure . Left $ ItemNotFound (getInt noteId)
       ((Only oldVersion):_) ->
-        let validVersionRange   = versionRange (VersionRange minVersion maxVersion) noteVersion
-            noteVersionEquality = sameNoteVersion oldVersion noteVersion
-        in
-          case (validVersionRange, noteVersionEquality) of
-            ((ValidNoteVersionRange version), (SameNoteVersion _)) ->
-              do
-                let newVersion = (+ 1) <$> version
-                executeNamed con
-                  "UPDATE SCRIB SET MESSAGE = :message, VERSION = :newVersion WHERE ID = :id and VERSION = :oldVersion"
-                    [
-                      ":message"    := noteMessage
-                    , ":id"         := noteId
-                    , ":oldVersion" := oldVersion
-                    , ":newVersion" := newVersion
-                    ]
-                pure . Right $ mkNoteIdVersion noteId newVersion
 
-            ((ValidNoteVersionRange _), (DifferentNoteVersions v1 v2))         -> pure . Left $ VersionMismatch (getInt v1) (getInt v2)
-            ((InvalidNoteVersionRange version _), (SameNoteVersion _ ))        -> pure . Left $ InvalidVersion version
-            ((InvalidNoteVersionRange version _), (DifferentNoteVersions _ _)) -> pure . Left $ InvalidVersion version
+        let updateAction = determineUpdate dbNote oldVersion (VersionRange minVersion maxVersion)
+        in
+          case updateAction of
+            (DoUpdate noteId_ noteMessage dbVersion newVersion) -> do
+              executeNamed con
+                "UPDATE SCRIB SET MESSAGE = :message, VERSION = :newVersion WHERE ID = :id and VERSION = :oldVersion"
+                  [
+                    ":message"    := noteMessage
+                  , ":id"         := noteId_
+                  , ":oldVersion" := dbVersion
+                  , ":newVersion" := newVersion
+                  ]
+              pure . Right $ mkUpdatedNoteIdVersion noteId_ newVersion
+
+            (VersionMismatchError v1 v2) ->
+              pure . Left $ VersionMismatch (getInt v1) (getInt v2)
+
+            (InvalidVersionRangeError version) ->
+              pure . Left $ InvalidVersion version
+
+        -- let validVersionRange   = versionRange  noteVersion
+        --     noteVersionEquality = sameNoteVersion oldVersion noteVersion
+        -- in
+        --   case (validVersionRange, noteVersionEquality) of
+        --     ((ValidNoteVersionRange version), (SameNoteVersion _)) ->
+        --       do
+        --         let newVersion = (+ 1) <$> version
+            --     executeNamed con
+            --       "UPDATE SCRIB SET MESSAGE = :message, VERSION = :newVersion WHERE ID = :id and VERSION = :oldVersion"
+            --         [
+            --           ":message"    := noteMessage
+            --         , ":id"         := noteId
+            --         , ":oldVersion" := oldVersion
+            --         , ":newVersion" := newVersion
+            --         ]
+            --     pure . Right $ mkNoteIdVersion noteId newVersion
+
+            -- ((ValidNoteVersionRange _), (DifferentNoteVersions v1 v2))         -> pure . Left $ VersionMismatch (getInt v1) (getInt v2)
+            -- ((InvalidNoteVersionRange version _), (SameNoteVersion _ ))        -> pure . Left $ InvalidVersion version
+            -- ((InvalidNoteVersionRange version _), (DifferentNoteVersions _ _)) -> pure . Left $ InvalidVersion version
 
 
 saveNewNote :: NewDBNote -> Connection -> IO NoteIdVersion
