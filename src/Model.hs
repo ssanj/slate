@@ -5,16 +5,19 @@
 
 module Model
        (
-          -- Data types
+          -- DATA TYPES
+
           IncomingNote(..)
        ,  OutgoingNote(..)
        ,  ApiKey(..)
        ,  DBError(..)
        ,  OutgoingError(..)
 
-         -- Functions
+         -- FUNCTIONS
+
        ,  getDBErrorCode
        ,  dbErrorToString
+       ,  showt
        ) where
 
 import GHC.Generics
@@ -24,7 +27,9 @@ import Data.Aeson.Casing (aesonDrop, camelCase)
 
 import qualified Data.Text                     as T
 
--- Data types
+
+-- DATA TYPES
+
 
 data OutgoingNote = OutgoingNote { _outgoingNoteText :: T.Text, _outgoingNoteId :: Int, _outgoingNoteVersion :: Int } deriving stock (Generic, Show)
 
@@ -54,7 +59,9 @@ dbErrorToString db@NeedIdAndVersion      = OutgoingError (getDBErrorCode db) "Th
 dbErrorToString db@(VersionMismatch _ _) = OutgoingError (getDBErrorCode db) "There's a different version of this note on the server. Refresh and try again"
 dbErrorToString db@(NoteTextIsEmpty)     = OutgoingError (getDBErrorCode db) "The note supplied does not have any text. Please add some text and try again"
 
--- JSON Encode/Decode
+
+-- JSON ENCODE/DECODE
+
 
 outgoingJsonOptions :: Options
 outgoingJsonOptions = aesonDrop 9 camelCase
@@ -80,3 +87,7 @@ instance ToJSON OutgoingError where
    toEncoding = genericToEncoding outgoingJsonOptions
 
 
+-- UTIL
+
+showt :: Show a => a -> T.Text
+showt = T.pack . show

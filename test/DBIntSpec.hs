@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module DBSpec where
+module DBIntSpec where
 
 -- import qualified Hedgehog              as H
 -- import qualified Hedgehog.Gen          as Gen
