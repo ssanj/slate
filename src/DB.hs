@@ -17,7 +17,6 @@ import Model
 import Model.DBNote
 import Database.SQLite.Simple
 
-import Data.Tagged (untag)
 import Control.Applicative (liftA2)
 import qualified Data.Text  as T
 
@@ -33,11 +32,10 @@ minVersion = 1
 saveExitingNote :: DBNote -> Connection -> IO (Either DBError NoteIdVersion)
 saveExitingNote dbNote con = do
     let (noteId, noteMessage, noteVersion) = getDBNote dbNote
-        id_      = untag noteId
         message_ = getNoteText noteMessage
-    versions <-  query con "SELECT VERSION FROM SCRIB WHERE ID = ?" (Only (id_ :: Int)) :: IO [Only NoteVersion]
+    versions <-  query con "SELECT VERSION FROM SCRIB WHERE ID = ?" (Only noteId) :: IO [Only NoteVersion]
     case versions of
-      []    -> pure . Left $ ItemNotFound id_
+      []    -> pure . Left $ ItemNotFound (getInt noteId)
       ((Only oldVersion):_) ->
         let validVersionRange   = versionRange (VersionRange minVersion maxVersion) noteVersion -- one less than max to allow for one final increment
             noteVersionEquality = sameNoteVersion oldVersion noteVersion
@@ -49,8 +47,8 @@ saveExitingNote dbNote con = do
                 executeNamed con
                   "UPDATE SCRIB SET MESSAGE = :message, VERSION = :newVersion WHERE ID = :id and VERSION = :oldVersion"
                     [
-                      ":message" := message_
-                    , ":id" := noteId
+                      ":message"    := message_
+                    , ":id"         := noteId
                     , ":oldVersion" := oldVersion
                     , ":newVersion" := newVersion
                     ]
