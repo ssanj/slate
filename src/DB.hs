@@ -45,16 +45,16 @@ saveExitingNote dbNote con = do
           case (validVersionRange, noteVersionEquality) of
             ((ValidNoteVersionRange version), (SameNoteVersion _)) ->
               do
-                let newVersion = (untag version) + 1
+                let newVersion = (+ 1) <$> version
                 executeNamed con
                   "UPDATE SCRIB SET MESSAGE = :message, VERSION = :newVersion WHERE ID = :id and VERSION = :oldVersion"
                     [
                       ":message" := message_
                     , ":id" := id_
                     , ":oldVersion" := oldVersion
-                    , ":newVersion" := newVersion
+                    , ":newVersion" := (untag newVersion)
                     ]
-                pure . Right $ NoteIdVersion (pure id_) (pure newVersion)
+                pure . Right $ NoteIdVersion (pure id_) newVersion
 
             ((ValidNoteVersionRange _), (DifferentNoteVersions v1 v2))         -> pure . Left $ VersionMismatch (untag v1) (untag v2)
             ((InvalidNoteVersionRange version _), (SameNoteVersion _ ))        -> pure . Left $ InvalidVersion version
