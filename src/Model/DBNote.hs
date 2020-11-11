@@ -53,6 +53,7 @@ import Data.Aeson
 
 import Database.SQLite.Simple (ToRow(..), FromRow(..), SQLData(SQLText), field)
 import Database.SQLite.Simple.ToField (ToField(..))
+import Database.SQLite.Simple.FromField (FromField(..))
 import Data.Tagged (Tagged(..), untag)
 import Model (DBError(NoteTextIsEmpty))
 
@@ -172,3 +173,7 @@ instance ToRow NewDBNote where
 
 instance ToField a => ToField (Tagged x a) where
   toField = toField . untag
+
+instance FromField a => FromField (Tagged x a) where
+  fromField = fmap Tagged . fromField
+

@@ -35,12 +35,11 @@ saveExitingNote dbNote con = do
     let (noteId, noteMessage, noteVersion) = getDBNote dbNote
         id_      = untag noteId
         message_ = getNoteText noteMessage
-    versions <-  query con "SELECT VERSION FROM SCRIB WHERE ID = ?" (Only (id_ :: Int)) :: IO [Only Int]
+    versions <-  query con "SELECT VERSION FROM SCRIB WHERE ID = ?" (Only (id_ :: Int)) :: IO [Only NoteVersion]
     case versions of
       []    -> pure . Left $ ItemNotFound id_
-      ((Only currentVersion):_) ->
+      ((Only oldVersion):_) ->
         let validVersionRange   = versionRange (VersionRange minVersion maxVersion) noteVersion -- one less than max to allow for one final increment
-            oldVersion          = mkNoteVersion currentVersion
             noteVersionEquality = sameNoteVersion oldVersion noteVersion
         in
           case (validVersionRange, noteVersionEquality) of
