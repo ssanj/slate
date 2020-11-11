@@ -6,13 +6,16 @@ module DBIntSpec where
 -- import qualified Hedgehog.Gen          as Gen
 -- import qualified Hedgehog.Range        as Range
 
+import Scaffold
+
 import Test.Tasty.HUnit       ((@?=), Assertion)
 import DB                     (fetchNotes, fetchSize, searchNotes, saveNewNote, saveExitingNote)
+import Model                  (DBError(..))
 import Data.Foldable          (traverse_)
 import Data.Text              (Text)
 import Database.SQLite.Simple (execute, query, Only(..))
+
 import qualified Model.DBNote as D
-import Scaffold
 
 
 unit_fetchNotes :: Assertion
@@ -33,8 +36,26 @@ unit_insert_new_note = dbNoteTest insertSeedDataFetchNotes assert_insert_new_not
 unit_insert_existing_note :: Assertion
 unit_insert_existing_note = dbNoteTest emptyNotes assert_insert_existing_note
 
+unit_insert_existing_note_not_found :: Assertion
+unit_insert_existing_note_not_found = dbNoteTest emptyNotes assert_insert_existing_note_not_found
+
 
 -- ASSERTIONS ACTIONS
+
+
+assert_insert_existing_note_not_found :: SeededDB -> DBAction ((), CleanUp)
+assert_insert_existing_note_not_found _ = \con -> do
+  let updatedNoteE = D.createDBNote (D.mkNoteId 1000) "Some message" (D.mkNoteVersion 1)
+  case updatedNoteE of
+    Left x -> runAssertionFailure $ "could not create updated note: " <> (show x)
+    (Right updatedNote) -> do
+      resultE <- saveExitingNote updatedNote con
+      case resultE of
+        Left dbError ->
+          case dbError of
+            (ItemNotFound noteId) -> runAssertion $ noteId @?= 1000
+            otherError            -> runAssertionFailure $ "Expected ItemNotFound error but got: " <> (show otherError)
+        Right found -> runAssertionFailure $ "could not save existing note: " <> (show found)
 
 
 assert_insert_existing_note :: SeededDB -> DBAction ((), CleanUp)
