@@ -39,8 +39,26 @@ unit_insert_existing_note = dbNoteTest emptyNotes assert_insert_existing_note
 unit_insert_existing_note_not_found :: Assertion
 unit_insert_existing_note_not_found = dbNoteTest emptyNotes assert_insert_existing_note_not_found
 
+unit_insert_existing_note_version_mismatch :: Assertion
+unit_insert_existing_note_version_mismatch = dbNoteTest emptyNotes assert_insert_existing_note_version_mismatch
+
 
 -- ASSERTIONS ACTIONS
+
+assert_insert_existing_note_version_mismatch :: SeededDB -> DBAction ((), CleanUp)
+assert_insert_existing_note_version_mismatch _ = \con -> do
+  execute con "INSERT INTO SCRIB (ID, MESSAGE) VALUES (1000, ?)" (Only ("Some strange message" :: Text))
+  let updatedNoteE = D.createDBNote (D.mkNoteId 1000) "Some message" (D.mkNoteVersion 2)
+  case updatedNoteE of
+    Left x -> runAssertionFailure $ "could not create updated note: " <> (show x)
+    (Right updatedNote) -> do
+      resultE <- saveExitingNote updatedNote con
+      case resultE of
+        Left dbError ->
+          case dbError of
+            (VersionMismatch v1 v2) -> runAssertion $ (v1 @?= 1) >> (v2 @?= 2)
+            otherError            -> runAssertionFailure $ "Expected VersionMismatchError error but got: " <> (show otherError)
+        Right found -> runAssertionFailure $ "should not save existing note: " <> (show found)
 
 
 assert_insert_existing_note_not_found :: SeededDB -> DBAction ((), CleanUp)
