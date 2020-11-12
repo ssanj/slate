@@ -73,3 +73,18 @@ unit_determineUpdate_doUpdate =
               (getAnyVersion updatedVersion) @?= 2
 
             other -> assertFailure $ "expected DoUpdate but got: " <> (show other)
+
+unit_determineUpdate_versionMismatch :: Assertion
+unit_determineUpdate_versionMismatch =
+  let dbNoteE = createDBNote (mkNoteId 1000) "blee" (mkNoteVersion 2)
+  in case dbNoteE of
+      Left x       -> assertFailure (show x)
+      Right dbNote ->
+        let result = determineUpdate dbNote [mkNoteVersionFromDB 1] (VersionRange 1 5)
+        in
+          case result of
+            (VersionMismatchError v1 v2) -> do
+              (getAnyVersion v1) @?= 1
+              (getAnyVersion v2) @?= 2
+
+            other -> assertFailure $ "expected VersionMismatchError but got: " <> (show other)
