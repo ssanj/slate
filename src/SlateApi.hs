@@ -19,7 +19,6 @@ import Control.Monad.IO.Class       (liftIO)
 import Data.Aeson                   (ToJSON)
 import Database.SQLite.Simple       (Connection, withTransaction, withConnection)
 import Network.HTTP.Types.Status    (Status, created201, ok200, status400)
-import Data.Tagged                  (untag)
 
 import qualified Web.Scotty   as SC (json)
 import qualified Data.Text    as T
@@ -71,12 +70,8 @@ saveNote (IncomingNote noteText Nothing Nothing) con =
 saveNote _ _ = pure . Left $ NeedIdAndVersion
 
 searchForNotes :: T.Text -> Connection -> IO [OutgoingNote]
-searchForNotes query con = fmap (fmap createNote) (searchNotes query con)
+searchForNotes query con = fmap (fmap getOutgoingNote) (searchNotes query con)
 
 retrieveTopNotes :: Connection -> IO [OutgoingNote]
-retrieveTopNotes con = fmap (fmap createNote) (fetchNotes maxFetchSize con)
+retrieveTopNotes con = fmap (fmap getOutgoingNote) (fetchNotes maxFetchSize con)
 
-createNote :: DBNote -> OutgoingNote
-createNote dbNote =
-  let (noteId, noteText, noteVersion) = getDBNote dbNote
-  in OutgoingNote (getNoteText noteText) (untag noteId) (untag noteVersion)
