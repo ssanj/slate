@@ -88,3 +88,15 @@ unit_determineUpdate_versionMismatch =
               (getAnyVersion v2) @?= 2
 
             other -> assertFailure $ "expected VersionMismatchError but got: " <> (show other)
+
+unit_determineUpdate_invalidVersionRange_diff_note_version :: Assertion
+unit_determineUpdate_invalidVersionRange_diff_note_version =
+  let dbNoteE = createDBNote (mkNoteId 1000) "blee" (mkNoteVersion 10)
+  in case dbNoteE of
+      Left x       -> assertFailure (show x)
+      Right dbNote ->
+        let result = determineUpdate dbNote [mkNoteVersionFromDB 1] (VersionRange 1 5)
+        in
+          case result of
+            (InvalidVersionRangeError v1) -> v1 @?= 10
+            other -> assertFailure $ "expected InvalidVersionRangeError but got: " <> (show other)
