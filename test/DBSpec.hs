@@ -56,4 +56,20 @@ unit_determineUpdate_note_not_found =
             NoMatchingNoteFound noteId -> noteId @?= 1000
             other -> assertFailure $ "expected NoMatchingNoteFound but got: " <> (show other)
 
--- determineUpdate :: DBNote -> [NoteVersionFromDB] -> VersionRange -> UpdateAction
+
+unit_determineUpdate_doUpdate :: Assertion
+unit_determineUpdate_doUpdate =
+  let dbNoteE = createDBNote (mkNoteId 1000) "blee" (mkNoteVersion 1)
+  in case dbNoteE of
+      Left x       -> assertFailure (show x)
+      Right dbNote ->
+        let result = determineUpdate dbNote [mkNoteVersionFromDB 1] (VersionRange 1 3)
+        in
+          case result of
+            (DoUpdate noteId  noteMessage dbVersion updatedVersion) -> do
+              noteId                         @?= (mkNoteId 1000)
+              (getNoteText noteMessage)      @?= "blee"
+              (getAnyVersion dbVersion)      @?= 1
+              (getAnyVersion updatedVersion) @?= 2
+
+            other -> assertFailure $ "expected DoUpdate but got: " <> (show other)
