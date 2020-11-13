@@ -30,12 +30,31 @@ import qualified Data.Text    as T
 
 -- DATA TYPES
 
+data NoteIdAndVersion =
+  NoteIdAndVersion {
+    _noteIdAndVersionNoteId      :: Int
+  , _noteIdAndVersionNoteVersion :: Int
+}  deriving stock (Generic, Eq, Show)
 
-data OutgoingNote = OutgoingNote { _outgoingNoteText :: T.Text, _outgoingNoteId :: Int, _outgoingNoteVersion :: Int } deriving stock (Generic, Show)
+data OutgoingNote =
+  OutgoingNote {
+    _outgoingNoteText :: T.Text
+  , _outgoingNoteId :: Int
+  , _outgoingNoteVersion :: Int
+  } deriving stock (Generic, Show)
 
-data IncomingNote = IncomingNote { _incomingNoteText :: T.Text, _incomingNoteId :: Maybe Int, _incomingNoteVersion :: Maybe Int } deriving stock (Generic, Eq, Show)
+data IncomingNote =
+  IncomingNote {
+    _incomingNoteText :: T.Text
+  , _incomingNoteId :: Maybe Int
+  , _incomingNoteVersion :: Maybe Int
+  } deriving stock (Generic, Eq, Show)
 
-data OutgoingError = OutgoingError { _outgoingErrorId :: Int, _outgoingErrorMessage :: T.Text } deriving stock (Generic, Show)
+data OutgoingError =
+  OutgoingError {
+    _outgoingErrorId :: Int
+  , _outgoingErrorMessage :: T.Text
+  } deriving stock (Generic, Show)
 
 newtype ApiKey = ApiKey { _apiKey :: T.Text } deriving stock (Eq, Show)
 
@@ -70,6 +89,9 @@ outgoingJsonOptions = aesonDrop 9 camelCase
 incomingJsonOptions :: Options
 incomingJsonOptions = aesonDrop 9 camelCase
 
+noteAndVersionJsonOptions :: Options
+noteAndVersionJsonOptions = aesonDrop 17 camelCase
+
 
 instance ToJSON OutgoingNote where
    toEncoding = genericToEncoding outgoingJsonOptions
@@ -83,6 +105,12 @@ instance ToJSON IncomingNote where
 
 instance FromJSON IncomingNote where
   parseJSON = genericParseJSON incomingJsonOptions
+
+instance ToJSON NoteIdAndVersion where
+   toEncoding = genericToEncoding noteAndVersionJsonOptions
+
+instance FromJSON NoteIdAndVersion where
+  parseJSON = genericParseJSON noteAndVersionJsonOptions
 
 instance ToJSON OutgoingError where
    toEncoding = genericToEncoding outgoingJsonOptions
