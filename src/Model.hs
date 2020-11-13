@@ -23,6 +23,7 @@ module Model
 
 import GHC.Generics
 import Data.Aeson
+import Data.Aeson.Types (Parser, parseFail)
 
 import Data.Aeson.Casing (aesonDrop, camelCase)
 
@@ -100,11 +101,25 @@ instance FromJSON OutgoingNote where
   parseJSON = genericParseJSON outgoingJsonOptions
 
 
+-- TODO: Do we need this?
 instance ToJSON IncomingNote where
    toEncoding = genericToEncoding incomingJsonOptions
 
+
 instance FromJSON IncomingNote where
-  parseJSON = genericParseJSON incomingJsonOptions
+  parseJSON = withObject "IncomingNote" $ \v ->
+    let noteTextP           = v .: "noteText"     :: Parser T.Text
+        maybeNoteIdP        = v .:? "noteId"      :: Parser (Maybe Int)
+        maybeNoteVersionP   = v .:? "noteVersion" :: Parser (Maybe Int)
+        maybeNoteIdVersionP = do
+                                maybeNoteId      <- maybeNoteIdP
+                                maybeNoteVersion <- maybeNoteVersionP
+                                case (maybeNoteId, maybeNoteVersion) of
+                                  (Just noteId, Just noteVersion) -> pure $ Just $ NoteIdAndVersion noteId noteVersion
+                                  (Nothing, Nothing)              -> pure $ Nothing
+                                  _                               -> parseFail "You need to supply both 'noteId' and 'noteVersion' or omit both"
+
+    in IncomingNote <$> noteTextP <*> maybeNoteIdVersionP
 
 instance ToJSON NoteIdAndVersion where
    toEncoding = genericToEncoding noteAndVersionJsonOptions
