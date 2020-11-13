@@ -62,21 +62,18 @@ newtype ApiKey = ApiKey { _apiKey :: T.Text } deriving stock (Eq, Show)
 data DBError = ItemNotFound Int
              | InvalidVersion Int
              | VersionMismatch Int Int
-             | NoteTextIsEmpty
-             | NeedIdAndVersion deriving stock (Eq, Show)
+             | NoteTextIsEmpty deriving stock (Eq, Show)
 
 
 getDBErrorCode :: DBError -> Int
 getDBErrorCode (ItemNotFound _)      = 1000
 getDBErrorCode (InvalidVersion _)    = 1001
 getDBErrorCode (VersionMismatch _ _) = 1002
-getDBErrorCode NeedIdAndVersion      = 1003
 getDBErrorCode NoteTextIsEmpty       = 1004
 
 dbErrorToString :: DBError -> OutgoingError
 dbErrorToString db@(ItemNotFound _)      = OutgoingError (getDBErrorCode db) "The note specified could not be found"
 dbErrorToString db@(InvalidVersion _)    = OutgoingError (getDBErrorCode db) "The version of the note supplied is invalid"
-dbErrorToString db@NeedIdAndVersion      = OutgoingError (getDBErrorCode db) "The save did not send the expected information to the server"
 dbErrorToString db@(VersionMismatch _ _) = OutgoingError (getDBErrorCode db) "There's a different version of this note on the server. Refresh and try again"
 dbErrorToString db@(NoteTextIsEmpty)     = OutgoingError (getDBErrorCode db) "The note supplied does not have any text. Please add some text and try again"
 
