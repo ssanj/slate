@@ -94,3 +94,4 @@ tests:
     - tagged
     - sqlite-simple
     - text
+    - aeson

@@ -33,7 +33,7 @@ import qualified Data.Text    as T
 
 data OutgoingNote = OutgoingNote { _outgoingNoteText :: T.Text, _outgoingNoteId :: Int, _outgoingNoteVersion :: Int } deriving stock (Generic, Show)
 
-data IncomingNote = IncomingNote { _incomingNoteText :: T.Text, _incomingNoteId :: Maybe Int, _incomingNoteVersion :: Maybe Int } deriving stock (Generic, Show)
+data IncomingNote = IncomingNote { _incomingNoteText :: T.Text, _incomingNoteId :: Maybe Int, _incomingNoteVersion :: Maybe Int } deriving stock (Generic, Eq, Show)
 
 data OutgoingError = OutgoingError { _outgoingErrorId :: Int, _outgoingErrorMessage :: T.Text } deriving stock (Generic, Show)
 
