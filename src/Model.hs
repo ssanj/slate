@@ -8,6 +8,7 @@ module Model
           -- DATA TYPES
 
           IncomingNote(..)
+       ,  NoteIdAndVersion(..)
        ,  OutgoingNote(..)
        ,  ApiKey(..)
        ,  DBError(..)
@@ -45,9 +46,8 @@ data OutgoingNote =
 
 data IncomingNote =
   IncomingNote {
-    _incomingNoteText :: T.Text
-  , _incomingNoteId :: Maybe Int
-  , _incomingNoteVersion :: Maybe Int
+    _incomingNoteText       :: T.Text
+  , _incomingNoteAndVersion :: Maybe NoteIdAndVersion
   } deriving stock (Generic, Eq, Show)
 
 data OutgoingError =

@@ -5,7 +5,7 @@ module IncomingNoteSpec where
 import Test.Tasty.HUnit                (assertFailure, (@?=), Assertion)
 
 import Data.Aeson
-import Model (IncomingNote(..))
+import Model (IncomingNote(..), NoteIdAndVersion(..))
 import qualified Data.Text    as T
 
 unit_your_decodes_IncomingNote :: Assertion
@@ -19,7 +19,7 @@ unit_your_decodes_IncomingNote =
   in
     case result of
       (Error x)       -> assertFailure $ "Decoding failed with: " <> x
-      (Success value) -> value @?= (IncomingNote "blah" Nothing Nothing)
+      (Success value) -> value @?= (IncomingNote "blah" Nothing)
 
 unit_your_decodes_IncomingNote_with_version_id :: Assertion
 unit_your_decodes_IncomingNote_with_version_id =
@@ -34,4 +34,4 @@ unit_your_decodes_IncomingNote_with_version_id =
   in
     case result of
       (Error x)       -> assertFailure $ "Decoding failed with: " <> x
-      (Success value) -> value @?= (IncomingNote "blah" (Just 1000) (Just 1))
+      (Success value) -> value @?= (IncomingNote "blah" (Just $ NoteIdAndVersion 1000 1))

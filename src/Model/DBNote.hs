@@ -35,6 +35,7 @@ module Model.DBNote
        ,  getInt
        ,  getAnyVersion
        ,  getOutgoingNote
+       ,  getNoteIdAndNoteVersion
 
         -- CONSTRUCTORS
 
@@ -63,7 +64,7 @@ import Database.SQLite.Simple (ToRow(..), FromRow(..), SQLData(SQLText), field)
 import Database.SQLite.Simple.ToField (ToField(..))
 import Database.SQLite.Simple.FromField (FromField(..))
 import Data.Tagged (Tagged(..), untag, retag)
-import Model (DBError(NoteTextIsEmpty), OutgoingNote(..))
+import Model (DBError(NoteTextIsEmpty), OutgoingNote(..), NoteIdAndVersion(..))
 
 data NoteIdTag
 data VersionTag
@@ -198,6 +199,8 @@ getOutgoingNote dbNote =
   let (noteId, noteText, noteVersion) = getDBNote dbNote
   in OutgoingNote (getNoteText noteText) (getInt noteId) (getInt noteVersion)
 
+getNoteIdAndNoteVersion :: NoteIdAndVersion -> (NoteId, NoteVersion)
+getNoteIdAndNoteVersion (NoteIdAndVersion noteId noteVersion) = (mkNoteId noteId, mkNoteVersion noteVersion)
 -- DB FromRow/ToRow
 
 instance FromRow DBNote where

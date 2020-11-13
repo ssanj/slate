@@ -40,7 +40,7 @@ server apiKey =
       noteIdE <- withScribDb (saveNote note)
       case noteIdE of
        (Left errorMessage) -> withError errorMessage
-       (Right noteIdVersion) -> maybe (jsonResponse created201 noteIdVersion) (const $ jsonResponse ok200 noteIdVersion) (_incomingNoteId note)
+       (Right noteIdVersion) -> maybe (jsonResponse created201 noteIdVersion) (const $ jsonResponse ok200 noteIdVersion) (_incomingNoteAndVersion note)
 
 
 withError :: DBError -> ActionM ()
@@ -61,13 +61,13 @@ jsonResponse :: ToJSON a => Status -> a -> ActionM ()
 jsonResponse st value = SC.json value >> status st
 
 saveNote :: IncomingNote -> Connection -> IO (Either DBError NoteIdVersion)
-saveNote (IncomingNote noteText (Just noteId) (Just version)) con =
-  let dbNoteE = createDBNote (mkNoteId noteId) noteText (mkNoteVersion version)
+saveNote (IncomingNote noteText (Just noteIdAndVersion)) con =
+  let (noteId, noteVersion) = getNoteIdAndNoteVersion noteIdAndVersion
+      dbNoteE = createDBNote noteId noteText noteVersion
   in either (pure . Left) (flip saveExitingNote $ con) dbNoteE
-saveNote (IncomingNote noteText Nothing Nothing) con =
+saveNote (IncomingNote noteText Nothing) con =
     let newDBNoteE = mkNewDBNote noteText
     in either (pure . Left) (\dbNote -> Right <$> (saveNewNote dbNote con)) newDBNoteE
-saveNote _ _ = pure . Left $ NeedIdAndVersion
 
 searchForNotes :: T.Text -> Connection -> IO [OutgoingNote]
 searchForNotes query con = fmap (fmap getOutgoingNote) (searchNotes query con)
