@@ -87,9 +87,6 @@ dbErrorToString db@(NoteTextIsEmpty)     = OutgoingError (getDBErrorCode db) "Th
 outgoingJsonOptions :: Options
 outgoingJsonOptions = aesonDrop 9 camelCase
 
-incomingJsonOptions :: Options
-incomingJsonOptions = aesonDrop 9 camelCase
-
 noteAndVersionJsonOptions :: Options
 noteAndVersionJsonOptions = aesonDrop 17 camelCase
 
@@ -99,11 +96,6 @@ instance ToJSON OutgoingNote where
 
 instance FromJSON OutgoingNote where
   parseJSON = genericParseJSON outgoingJsonOptions
-
-
--- TODO: Do we need this?
-instance ToJSON IncomingNote where
-   toEncoding = genericToEncoding incomingJsonOptions
 
 
 instance FromJSON IncomingNote where
