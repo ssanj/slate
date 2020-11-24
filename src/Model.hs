@@ -129,6 +129,9 @@ instance FromJSON NoteIdAndVersion where
 instance ToJSON OutgoingError where
    toEncoding = genericToEncoding outgoingJsonOptions
 
+instance FromJSON OutgoingError where
+   parseJSON = genericParseJSON outgoingJsonOptions
+
 
 -- UTIL
 

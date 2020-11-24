@@ -95,3 +95,9 @@ tests:
     - sqlite-simple
     - text
     - aeson
+    - scotty
+    - transformers
+    - data-default-class
+    - http-types
+    - binary
+    - bytestring
