@@ -19,15 +19,18 @@ module Model
        ,  getDBErrorCode
        ,  dbErrorToString
        ,  showt
+       ,  outgoingErrorText
        ) where
 
 import GHC.Generics
 import Data.Aeson
 import Data.Aeson.Types (Parser, parseFail)
+import Data.Aeson.Text (encodeToLazyText)
 
 import Data.Aeson.Casing (aesonDrop, camelCase)
 
-import qualified Data.Text    as T
+import qualified Data.Text      as T
+import qualified Data.Text.Lazy as LT
 
 
 -- DATA TYPES
@@ -55,7 +58,7 @@ data OutgoingError =
   OutgoingError {
     _outgoingErrorId :: Int
   , _outgoingErrorMessage :: T.Text
-  } deriving stock (Generic, Show)
+  } deriving stock (Generic, Show, Eq)
 
 newtype ApiKey = ApiKey { _apiKey :: T.Text } deriving stock (Eq, Show)
 
@@ -77,6 +80,13 @@ dbErrorToString db@(InvalidVersion _)    = OutgoingError (getDBErrorCode db) "Th
 dbErrorToString db@(VersionMismatch _ _) = OutgoingError (getDBErrorCode db) "There's a different version of this note on the server. Refresh and try again"
 dbErrorToString db@(NoteTextIsEmpty)     = OutgoingError (getDBErrorCode db) "The note supplied does not have any text. Please add some text and try again"
 
+
+outgoingErrorText :: Int -> T.Text -> T.Text
+outgoingErrorText code message =
+  let errorObject = OutgoingError code message
+      errorJson   = toJSON errorObject
+      errorString = LT.toStrict . encodeToLazyText $ errorJson
+  in errorString
 
 -- JSON ENCODE/DECODE
 
