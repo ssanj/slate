@@ -20,15 +20,16 @@ module Server
 
 import Model (ApiKey(..))
 
-import Data.String          (fromString)
-import Control.Monad        (void, when)
-import Data.List            (find)
-import Data.Bool            (bool)
-import Data.CaseInsensitive (CI)
-import Data.ByteString      (ByteString)
-import Network.HTTP.Types   (status422, status400, status500)
-import Data.Aeson           (FromJSON(..), eitherDecode, Result(..), fromJSON)
-import Model                (OutgoingError(..))
+import Data.String            (fromString)
+import Control.Monad          (void, when)
+import Control.Monad.IO.Class (MonadIO)
+import Data.List              (find)
+import Data.Bool              (bool)
+import Data.CaseInsensitive   (CI)
+import Data.ByteString        (ByteString)
+import Network.HTTP.Types     (status422, status400, status500)
+import Data.Aeson             (FromJSON(..), eitherDecode, Result(..), fromJSON)
+import Model                  (OutgoingError(..))
 
 import qualified Network.Wai                   as W
 import qualified Network.Wai.Middleware.Static as W
@@ -42,7 +43,7 @@ import qualified Data.Text.Encoding            as E
 
 -- import qualified Data.CaseInsensitive    as CI
 
-type SlateAction = ST.ActionT Except IO
+type SlateAction = ST.ActionT Except
 
 data Except = MalformedJsonInput T.Text
             | InvalidInput T.Text
@@ -81,13 +82,13 @@ bsToText = either (const Nothing) Just . T.decodeUtf8'
 matchApiKey :: T.Text -> ApiKey -> Maybe T.Text
 matchApiKey headerValue (ApiKey apiKeyValue) = bool Nothing (Just headerValue) (apiKeyValue == headerValue)
 
-handleEx :: Except -> SlateAction ()
+handleEx :: Monad m => Except -> SlateAction m ()
 handleEx (MalformedJsonInput errorText) = ST.status status400 >> ST.json (OutgoingError 900 errorText)
 handleEx (NoDataProvided errorText)     = ST.status status400 >> ST.json (OutgoingError 901 errorText)
 handleEx (InvalidInput errorText)       = ST.status status422 >> ST.json (OutgoingError 902 errorText)
 handleEx (GenericError errorText)       = ST.status status500 >> ST.json (OutgoingError 903 errorText)
 
-jsonErrorHandle :: FromJSON a => SlateAction a
+jsonErrorHandle :: (FromJSON a, MonadIO m) => SlateAction m a
 jsonErrorHandle = do
     b <- ST.body
     when (b == "") $ do

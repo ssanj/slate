@@ -14,7 +14,7 @@ import DB
 import Model
 import Model.DBNote
 
-import Control.Monad.IO.Class       (liftIO)
+import Control.Monad.IO.Class       (liftIO, MonadIO)
 import Data.Aeson                   (ToJSON(..))
 import Database.SQLite.Simple       (Connection, withTransaction, withConnection)
 import Network.HTTP.Types.Status    (Status, created201, ok200, status400)
@@ -44,13 +44,13 @@ server apiKey =
        (Right noteIdVersion) -> maybe (jsonResponse created201 noteIdVersion) (const $ jsonResponse ok200 noteIdVersion) (_incomingNoteAndVersion note)
 
 
-withError :: DBError -> SlateAction ()
+withError :: Monad m => DBError -> SlateAction m ()
 withError dbError = ST.json (dbErrorToString dbError) >> ST.status status400
 
-withScribDb :: (Connection -> IO a) -> SlateAction a
+withScribDb :: MonadIO m => (Connection -> IO a) -> SlateAction m a
 withScribDb = liftIO . scribDB
 
-withScribDbActionM :: (Connection -> IO a) -> (a -> SlateAction b) -> SlateAction b
+withScribDbActionM :: MonadIO m => (Connection -> IO a) -> (a -> SlateAction m b) -> SlateAction m b
 withScribDbActionM cb conversion = do
   value  <- liftIO $ scribDB cb
   conversion value
@@ -58,7 +58,7 @@ withScribDbActionM cb conversion = do
 scribDB :: (Connection -> IO a) -> IO a
 scribDB dbOp = withConnection "scrib.db" (\con -> withTransaction con (dbOp con))
 
-jsonResponse :: ToJSON a => Status -> a -> SlateAction ()
+jsonResponse :: (ToJSON a, Monad m) => Status -> a -> SlateAction m ()
 jsonResponse st value = ST.json value >> ST.status st
 
 saveNote :: IncomingNote -> Connection -> IO (Either DBError NoteIdVersion)
