@@ -13,23 +13,14 @@ import Server
 import DB
 import Model
 import Model.DBNote
--- import Web.Scotty         hiding    (json, Options)
-import Web.Scotty.Trans             (ActionT, ScottyError(..))
-import Network.HTTP.Types           (status422)
-import Data.String                  (fromString)
 
-import Control.Monad                (when)
 import Control.Monad.IO.Class       (liftIO)
-import Data.Aeson                   (ToJSON(..), FromJSON(..), eitherDecode, Result(..), fromJSON)
+import Data.Aeson                   (ToJSON(..))
 import Database.SQLite.Simple       (Connection, withTransaction, withConnection)
-import Network.HTTP.Types.Status    (Status, created201, ok200, status400, status500)
+import Network.HTTP.Types.Status    (Status, created201, ok200, status400)
 
-import Web.Scotty.Trans               as ST (json, body, scottyT, middleware, defaultHandler, get, param, post, status, raise)
+import qualified Web.Scotty.Trans     as ST
 import qualified Data.Text            as T
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.Text.Encoding   as E
-
-type SlateAction = ActionT Except IO
 
 server :: ApiKey  -> IO ()
 server apiKey =
@@ -84,57 +75,3 @@ searchForNotes query con = fmap (fmap getOutgoingNote) (searchNotes query con)
 
 retrieveTopNotes :: Connection -> IO [OutgoingNote]
 retrieveTopNotes con = fmap (fmap getOutgoingNote) (fetchNotes maxFetchSize con)
-
--- MOVE TO SCOTTY INTERNAL MODULE
-
-data Except = MalformedJsonInput T.Text
-            | InvalidInput T.Text
-            | NoDataProvided T.Text
-            | GenericError T.Text
-    deriving stock (Show, Eq)
-
-
-instance ScottyError Except where
-    stringError = GenericError . T.pack
-    showError = fromString . show
-
-
-handleEx :: Except -> SlateAction ()
-handleEx (MalformedJsonInput errorText) = ST.status status400 >> ST.json (OutgoingError 900 errorText)
-handleEx (NoDataProvided errorText)     = ST.status status400 >> ST.json (OutgoingError 901 errorText)
-handleEx (InvalidInput errorText)       = ST.status status422 >> ST.json (OutgoingError 902 errorText)
-handleEx (GenericError errorText)       = ST.status status500 >> ST.json (OutgoingError 903 errorText)
-
-jsonErrorHandle :: FromJSON a => SlateAction a
-jsonErrorHandle = do
-    b <- ST.body
-    when (b == "") $ do
-      let errorMessage = "jsonData - No data was provided." :: T.Text
-      ST.raise $ NoDataProvided errorMessage
-    case eitherDecode b of
-      Left err -> do
-        let errorMessage =
-              "jsonData - malformed." <>
-              " Data was: "           <>
-              toText b                <>
-              " Error was: "          <>
-              T.pack err
-        ST.raise $ MalformedJsonInput errorMessage
-
-      Right value -> case fromJSON value of
-
-        Error err -> do
-          let errorMessage =
-                "jsonData - failed parse." <>
-                " Data was: "              <>
-                toText b                   <>
-                "."                        <>
-                " Error was: "             <>
-                T.pack err
-          ST.raise $ InvalidInput errorMessage
-
-        Success a -> do
-          return a
-
-toText :: BL.ByteString -> T.Text
-toText = E.decodeUtf8 . BL.toStrict
