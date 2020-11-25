@@ -116,8 +116,7 @@ jsonErrorHandle = do
                 T.pack err
           ST.raise $ InvalidInput errorMessage
 
-        Success a -> do
-          return a
+        Success a -> return a
 
 toText :: BL.ByteString -> T.Text
 toText = E.decodeUtf8 . BL.toStrict
