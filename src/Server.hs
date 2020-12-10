@@ -16,6 +16,7 @@ module Server
        ,  checkApiKey
        ,  handleEx
        ,  jsonErrorHandle
+       ,  serverOptions
        ) where
 
 import Model (ApiKey(..))
@@ -30,6 +31,7 @@ import Data.ByteString        (ByteString)
 import Network.HTTP.Types     (status422, status400, status500)
 import Data.Aeson             (FromJSON(..), eitherDecode, Result(..), fromJSON)
 import Model                  (OutgoingError(..))
+import Data.Default.Class     (Default(..))
 
 import qualified Network.Wai                   as W
 import qualified Network.Wai.Middleware.Static as W
@@ -39,7 +41,7 @@ import qualified Data.Text.Encoding            as T
 import qualified Data.ByteString.Lazy          as BL
 import qualified Web.Scotty.Trans              as ST
 import qualified Data.Text.Encoding            as E
-
+import qualified Network.Wai.Handler.Warp      as WR
 
 -- import qualified Data.CaseInsensitive    as CI
 
@@ -120,3 +122,14 @@ jsonErrorHandle = do
 
 toText :: BL.ByteString -> T.Text
 toText = E.decodeUtf8 . BL.toStrict
+
+applicationError :: W.Response
+applicationError = W.responseLBS H.status500 [] "The server experienced an error"
+
+serverOptions :: Int -> ST.Options
+serverOptions port =
+  let withPortSettings             = WR.setPort port WR.defaultSettings
+      withGracefulShutdownSettings = WR.setGracefulShutdownTimeout (Just 10) withPortSettings
+      withErorHandlingSettings     = WR.setOnExceptionResponse (const applicationError) withGracefulShutdownSettings
+      fullSettings                 = withErorHandlingSettings
+  in def { ST.settings = fullSettings }

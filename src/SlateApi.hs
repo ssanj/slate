@@ -19,12 +19,12 @@ import Data.Aeson                   (ToJSON(..))
 import Database.SQLite.Simple       (Connection, withTransaction, withConnection)
 import Network.HTTP.Types.Status    (Status, created201, ok200, status400)
 
-import qualified Web.Scotty.Trans     as ST
-import qualified Data.Text            as T
+import qualified Web.Scotty.Trans         as ST
+import qualified Data.Text                as T
 
 server :: ApiKey  -> IO ()
 server apiKey =
-  ST.scottyT 3000 id $ do
+  ST.scottyOptsT (serverOptions 3000) id $ do
     ST.middleware $ createMiddleware addStaticDirPolicy -- Need to have this first to serve static content
     ST.middleware $ checkApiKey apiKey
     ST.defaultHandler handleEx

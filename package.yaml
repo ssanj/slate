@@ -43,6 +43,8 @@ library:
   - case-insensitive
   - bytestring
   - tagged
+  - data-default-class
+  - warp
 
   ghc-options:
   - -Werror
