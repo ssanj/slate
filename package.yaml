@@ -35,9 +35,10 @@ library:
   - scotty
   - aeson
   - aeson-casing
-  - wai-cors
   - wai
   - wai-middleware-static
+  - wai-extra
+  - wai-cors
   - http-types
   - sqlite-simple
   - case-insensitive

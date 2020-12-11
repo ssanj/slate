@@ -14,18 +14,22 @@ import DB
 import Model
 import Model.DBNote
 
-import Control.Monad.IO.Class       (liftIO, MonadIO)
-import Data.Aeson                   (ToJSON(..))
-import Database.SQLite.Simple       (Connection, withTransaction, withConnection)
-import Network.HTTP.Types.Status    (Status, created201, ok200, status400)
+import Control.Monad.IO.Class               (liftIO, MonadIO)
+import Data.Aeson                           (ToJSON(..))
+import Database.SQLite.Simple               (Connection, withTransaction, withConnection)
+import Network.HTTP.Types.Status            (Status, created201, ok200, status400)
+import Network.Wai.Middleware.RequestLogger (logStdout)
 
-import qualified Web.Scotty.Trans         as ST
-import qualified Data.Text                as T
+import qualified Network.Wai.Middleware.Gzip as GZ
+import qualified Web.Scotty.Trans            as ST
+import qualified Data.Text                   as T
 
 server :: ApiKey  -> IO ()
 server apiKey =
   ST.scottyOptsT (serverOptions 3000) id $ do
     ST.middleware $ createMiddleware addStaticDirPolicy -- Need to have this first to serve static content
+    ST.middleware $ GZ.gzip (GZ.def { GZ.gzipFiles = GZ.GzipCompress })
+    ST.middleware logStdout
     ST.middleware $ checkApiKey apiKey
     ST.defaultHandler handleEx
 
