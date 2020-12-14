@@ -4,7 +4,7 @@ on: push
 jobs:
   run-tests:
     name: Slate Tests
-    runs-on: haskell:8.8.4-buster
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v1
       - uses: ./github-actions/stack-action-test
