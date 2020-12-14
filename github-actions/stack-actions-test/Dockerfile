@@ -8,6 +8,6 @@ RUN mkdir -p /app/build/work-dir
 
 ADD . .
 
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/app/entrypoint.sh"]

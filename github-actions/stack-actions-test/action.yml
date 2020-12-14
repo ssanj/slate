@@ -4,14 +4,7 @@ author: "ssanj@github.com"
 
 runs:
   using: "docker"
-  image: "../../Dockerfile"
-  args:
-    - stack
-    - --stack-root
-    - /app/build/stack-root
-    - --work-dir
-    - build/work-dir
-    - test
+  image: "Dockerfile"
 
 branding:
   icon: "mic"
