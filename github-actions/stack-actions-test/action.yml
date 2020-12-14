@@ -10,7 +10,7 @@ runs:
     - --stack-root
     - /app/build/stack-root
     - --work-dir
-    - /app/build/work-dir
+    - build/work-dir
     - test
 
 branding:
