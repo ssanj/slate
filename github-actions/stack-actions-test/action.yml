@@ -7,7 +7,10 @@ runs:
   image: "../../Dockerfile"
   args:
     - stack
-    - --allow-different-user
+    - --stack-root
+    - /app/build/stack-root
+    - --work-dir
+    - /app/build/work-dir
     - test
 
 branding:
