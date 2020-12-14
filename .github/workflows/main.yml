@@ -20,3 +20,6 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.stack }}-${{ matrix.cabal }}-${{ matrix.ghc }}-stack
 
       - uses: ./github-actions/stack-actions-test
+      - name: Stack Exec
+        run: |
+          stack --allow-different-user --stack-root /app/build/stack-root install
