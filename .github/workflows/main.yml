@@ -13,13 +13,15 @@ jobs:
 
     steps:
       - uses: actions/checkout@v1
+
+      - uses: ./github-actions/stack-actions-test
+
       - uses: actions/cache@v2.1.3
         name: Cache stack-cache
         with:
           path: /app/build/stack-root
           key: ${{ runner.os }}-${{ matrix.stack }}-${{ matrix.cabal }}-${{ matrix.ghc }}-stack
 
-      - uses: ./github-actions/stack-actions-test
       - name: Stack Exec
         run: |
           stack --allow-different-user --stack-root /app/build/stack-root install
