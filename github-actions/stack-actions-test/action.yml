@@ -5,7 +5,6 @@ author: "ssanj@github.com"
 runs:
   using: "docker"
   image: "../../Dockerfile"
-  working-directory: /app
   args:
     - stack
     - --stack-root
