@@ -7,7 +7,7 @@ runs:
   image: "../../Dockerfile"
   args:
     - stack
-    - --allow-different-user=true
+    - --allow-different-user
     - test
 
 branding:
