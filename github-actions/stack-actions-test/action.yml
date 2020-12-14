@@ -1,0 +1,14 @@
+name: "Stack Actions"
+description: "Stack Actions"
+author: "ssanj@github.com"
+
+runs:
+  using: "docker"
+  image: "Dockerfile"
+  args:
+    - stack
+    - test
+
+branding:
+  icon: "mic"
+  color: "purple"
