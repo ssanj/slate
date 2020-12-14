@@ -5,6 +5,18 @@ jobs:
   run-tests:
     name: Slate Tests
     runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        stack: ["2.5.1"]
+        cabal: ["3.2"]
+        ghc:   ["LTS-16.26"]
+
     steps:
       - uses: actions/checkout@v1
+      - uses: actions/cache@v2.1.3
+        name: Cache stack-cache
+        with:
+          path: /app/build/stack-root
+          key: ${{ runner.os }}-${{ matrix.stack }}-${{ matrix.cabal }}-${{ matrix.ghc }}-stack
+
       - uses: ./github-actions/stack-actions-test
