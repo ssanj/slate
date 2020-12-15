@@ -35,7 +35,8 @@ jobs:
       - name: Dump exec1
         shell: bash
         run: |
-          echo "Executable1: ${{ steps.slate-exe.outputs.slate-exe }} "
+          echo "Executable1: ${{ steps.slate-exe.outputs.slate-exe }}"
+          ls -l  ${{ steps.slate-exe.outputs.slate-exe }}/bin/"
 
       # - uses: fnkr/github-action-ghr@v1
       #   if: startsWith(github.ref, 'refs/tags/')
