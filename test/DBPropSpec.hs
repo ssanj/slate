@@ -27,8 +27,8 @@ hprop_versionRange_failure =
   H.property $ do
     minR  <- H.forAll $ Gen.int (Range.linear 0 99)
     maxR  <- H.forAll $ Gen.int (Range.linear (minR + 1) 200)
-    let upperG :: H.Gen Int =  Gen.int (Range.linear maxR (maxR + 100))
-        lowerG :: H.Gen Int =  Gen.int (Range.linear (minR - 100) minR)
+    let upperG :: H.Gen Int =  Gen.int (Range.linear (maxR + 1) (maxR + 100))
+        lowerG :: H.Gen Int =  Gen.int (Range.linear (minR - 100) (minR - 1))
         minMax = (D.VersionRange minR maxR)
     versionE <- H.forAll $ Gen.either lowerG upperG
     either (assertVersionRangeFailure minMax) (assertVersionRangeFailure minMax) versionE
