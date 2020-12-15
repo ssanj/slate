@@ -1,5 +1,5 @@
 name:                slate
-version:             0.1.0.2
+version:             0.1.0.4
 github:              "ssanj/slate"
 license:             BSD3
 author:              "sanjiv sahayam"
@@ -60,7 +60,7 @@ library:
   - -Wno-type-defaults
 
 executables:
-  slate-exe:
+  slate:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
