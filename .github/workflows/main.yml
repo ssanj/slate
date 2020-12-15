@@ -30,7 +30,7 @@ jobs:
 
       - id: slate-exe
         shell: bash
-        run: echo "::set-output name=slate-exe::$(echo 'stack path --local-install-root')"
+        run: echo "::set-output name=slate-exe::$(stack path --local-install-root)"
 
       - name: Dump exec1
         shell: bash
