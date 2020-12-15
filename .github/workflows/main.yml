@@ -29,13 +29,17 @@ jobs:
         run: stack test
 
       - name: Dump exec1
-        run: echo "Executable1: ${{ steps.stack-test.outputs.stack-exe }} "
+        shell: bash
+        run: |
+          echo "Executable1: ${{ steps.stack-test.outputs.stack-exe }} "
 
       - name: stack install
         run: stack install
 
-      - name: Dump exec1
-        run: echo "Executable2: ${{ steps.stack-test.outputs.stack-exe }} "
+      - name: Dump exec2
+        shell: bash
+        run: |
+          echo "Executable2: ${{ steps.stack-test.outputs.stack-exe }} "
 
       # - uses: fnkr/github-action-ghr@v1
       #   if: startsWith(github.ref, 'refs/tags/')
