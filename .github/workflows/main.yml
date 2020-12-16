@@ -48,7 +48,7 @@ jobs:
         id: prep-artifact
         run: |
           mkdir dist
-          mv "${{ steps.slate-exe.outputs.slate-exe }}/bin/slate" "dist/slate-$GIT_TAG_NAME-${{ runner.os }}"
+          mv "${{ steps.slate-exe.outputs.slate-exe }}/bin/slate" "dist/slate-${{ steps.tag.outputs.tag }}-${{ runner.os }}"
           echo "::set-output name=artifact-name::$(ls dist/slate-*)"
 
       - name: Statsify Artifact
