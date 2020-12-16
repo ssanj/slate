@@ -10,9 +10,9 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Set tag name
+        if: startsWith(github.ref, 'refs/tags/')
         id: tag
         shell: bash
-        if: startsWith(github.ref, 'refs/tags/')
         run: echo "ref : ${{ github.ref }}"
 
       # - id: haskell-action
