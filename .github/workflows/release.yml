@@ -1,4 +1,4 @@
-name: Slate Build
+name: Slate Release
 on:
   push:
     tags:
