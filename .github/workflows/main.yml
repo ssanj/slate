@@ -15,6 +15,7 @@ jobs:
         shell: bash
         run: |
           echo "ref : ${{ github.ref }}"
+          echo ${{ github.ref }} | grep -oP '(?<=refs/tags/v).+(?=$)'
 
       # - id: haskell-action
       #   uses: haskell/actions/setup@v1.1.5
