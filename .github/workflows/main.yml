@@ -15,7 +15,12 @@ jobs:
         shell: bash
         run: |
           echo "ref : ${{ github.ref }}"
-          echo ${{ github.ref }} | grep -oP '(?<=refs/tags/v).+(?=$)'
+          echo "::set-output name=tag-name::$(echo ${{ github.ref }} | grep -oP '(?<=refs/tags/v).+(?=$)')"
+
+      - name: Statsify
+        shell: bash
+        run: |
+         echo "tag name: ${{ steps.tag.outputs.tag-name }}"
 
       # - id: haskell-action
       #   uses: haskell/actions/setup@v1.1.5
@@ -41,7 +46,7 @@ jobs:
       #   shell: bash
       #   run: |
       #     echo "executable location: ${{ steps.slate-exe.outputs.slate-exe }}"
-      #     echo "tag name: $GIT_TAG_NAME"
+      #     echo "tag name: ${{ steps.tag.outputs.tag-name }}"
       #     echo "executable: $(ls -l  ${{ steps.slate-exe.outputs.slate-exe }}/bin/)"
 
       # - name: Prepare Artifact
