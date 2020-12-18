@@ -2,4 +2,5 @@
 slate.cabal
 *~
 static/*
+db/*
 *.db
