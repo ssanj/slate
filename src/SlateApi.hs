@@ -47,6 +47,11 @@ server apiKey =
        (Left errorMessage) -> withError errorMessage
        (Right noteIdVersion) -> maybe (jsonResponse created201 noteIdVersion) (const $ jsonResponse ok200 noteIdVersion) (_incomingNoteAndVersion note)
 
+databaseLocation :: T.Text
+databaseLocation = "db"
+
+withDatabaseLocation :: T.Text -> T.Text
+withDatabaseLocation dbName = databaseLocation <> "/" <> dbName
 
 withError :: Monad m => DBError -> SlateAction m ()
 withError dbError = ST.json (dbErrorToString dbError) >> ST.status status400
@@ -60,7 +65,7 @@ withScribDbActionM cb conversion = do
   conversion value
 
 scribDB :: (Connection -> IO a) -> IO a
-scribDB dbOp = withConnection "scrib.db" (\con -> withTransaction con (dbOp con))
+scribDB dbOp = withConnection (T.unpack $ withDatabaseLocation "scrib.db") (\con -> withTransaction con (dbOp con))
 
 jsonResponse :: (ToJSON a, Monad m) => Status -> a -> SlateAction m ()
 jsonResponse st value = ST.json value >> ST.status st
