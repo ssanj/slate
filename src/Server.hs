@@ -32,6 +32,7 @@ import Network.HTTP.Types     (status422, status400, status500)
 import Data.Aeson             (FromJSON(..), eitherDecode, Result(..), fromJSON)
 import Model                  (OutgoingError(..))
 import Data.Default.Class     (Default(..))
+import Control.Applicative    ((<|>))
 
 import qualified Network.Wai                   as W
 import qualified Network.Wai.Middleware.Static as W
@@ -70,7 +71,8 @@ checkApiKey apiKey baseApp = \req respF ->
         (_, hv)     <- find ((apiKeyHeader ==) . fst) (W.requestHeaders req)
         headerValue <- bsToText hv
         void $ matchApiKey headerValue apiKey
-  in maybe (respF noMatchingApiKey) (const $ baseApp req respF) maybeMatched
+      maybeHomePage = void . matchHomePage . W.pathInfo $ req
+  in maybe (respF noMatchingApiKey) (const $ baseApp req respF) (maybeMatched <|> maybeHomePage)
 
 noMatchingApiKey :: W.Response
 noMatchingApiKey = W.responseLBS H.status401 [] BL.empty
@@ -83,6 +85,11 @@ bsToText = either (const Nothing) Just . T.decodeUtf8'
 
 matchApiKey :: T.Text -> ApiKey -> Maybe T.Text
 matchApiKey headerValue (ApiKey apiKeyValue) = bool Nothing (Just headerValue) (apiKeyValue == headerValue)
+
+-- Can we just make this a Bool?
+matchHomePage :: [T.Text] -> Maybe T.Text
+matchHomePage [] = Just "/"
+matchHomePage _ = Nothing
 
 handleEx :: Monad m => Except -> SlateAction m ()
 handleEx (MalformedJsonInput errorText) = ST.status status400 >> ST.json (OutgoingError 900 errorText)

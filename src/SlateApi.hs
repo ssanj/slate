@@ -33,6 +33,8 @@ server apiKey =
     ST.middleware $ checkApiKey apiKey
     ST.defaultHandler handleEx
 
+    ST.get "/" $ ST.file "./static/index.html"
+
     ST.get "/notes" $ do
       withScribDbActionM retrieveTopNotes ST.json
 
