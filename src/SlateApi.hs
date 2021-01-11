@@ -13,19 +13,30 @@ import Server
 import DB
 import Model
 import Model.DBNote
+import System.IO
 
 import Control.Monad.IO.Class               (liftIO, MonadIO)
 import Data.Aeson                           (ToJSON(..))
 import Database.SQLite.Simple               (Connection, withTransaction, withConnection)
 import Network.HTTP.Types.Status            (Status, created201, ok200, status400)
 import Network.Wai.Middleware.RequestLogger (logStdout)
+import Paths_slate                          (version)
+import Control.Exception                    (catch, IOException)
+import Control.DeepSeq                      (deepseq)
 
 import qualified Network.Wai.Middleware.Gzip as GZ
 import qualified Web.Scotty.Trans            as ST
 import qualified Data.Text                   as T
+import qualified Data.Text.IO                as T (putStrLn, putStr)
+import qualified Data.Version                as DV
 
 server :: ApiKey  -> IO ()
-server apiKey =
+server apiKey = do
+  printBanner
+  setupScotty apiKey
+
+setupScotty :: ApiKey -> IO ()
+setupScotty apiKey =
   ST.scottyOptsT (serverOptions 3000) id $ do
     ST.middleware $ createMiddleware addStaticDirPolicy -- Need to have this first to serve static content
     ST.middleware $ GZ.gzip (GZ.def { GZ.gzipFiles = GZ.GzipCompress })
@@ -48,6 +59,31 @@ server apiKey =
       case noteIdE of
        (Left errorMessage) -> withError errorMessage
        (Right noteIdVersion) -> maybe (jsonResponse created201 noteIdVersion) (const $ jsonResponse ok200 noteIdVersion) (_incomingNoteAndVersion note)
+
+
+printBanner :: IO ()
+printBanner = do
+  getAsciiBanner >>= T.putStrLn
+  T.putStr . T.pack . take 17 . repeat $ ' '
+  T.putStr . T.pack . DV.showVersion $ version
+  T.putStrLn ""
+  T.putStrLn ""
+
+getAsciiBanner :: IO T.Text
+getAsciiBanner =
+  catch (withFile "banner.txt" ReadMode readBannerContent) handleBannerNotFound
+    where
+      readBannerContent :: Handle -> IO T.Text
+      readBannerContent h = do
+        hSetBuffering h NoBuffering
+        content <- hGetContents h
+        content `deepseq` (pure . T.pack $ content)
+
+      handleBannerNotFound :: IOException -> IO T.Text
+      handleBannerNotFound _ = do
+        hPutStr stderr "Could not open banner.txt\n"
+        pure "= SLATE ="
+
 
 databaseLocation :: T.Text
 databaseLocation = "db"
