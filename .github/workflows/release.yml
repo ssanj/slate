@@ -53,7 +53,9 @@ jobs:
         run: |
           mkdir dist
           mv "${{ steps.slate-exe.outputs.slate-exe }}/bin/slate" "dist/slate-${{ steps.tag.outputs.tag-name }}-${{ runner.os }}"
+          cp banner.txt dist/
           echo "::set-output name=artifact-name::$(ls dist/slate-*)"
+          echo "::set-output name=artifact-banner::dist/banner.txt"
 
       - name: Statsify Artifact
         shell: bash
@@ -65,3 +67,10 @@ jobs:
         env:
           GHR_PATH: "${{ steps.prep-artifact.outputs.artifact-name }}"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: fnkr/github-action-ghr@v1.3
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GHR_PATH: "${{ steps.prep-artifact.outputs.artifact-banner }}"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
