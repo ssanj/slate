@@ -38,9 +38,12 @@ server apiKey = do
 setupScotty :: ApiKey -> IO ()
 setupScotty apiKey =
   ST.scottyOptsT (serverOptions 3000) id $ do
-    ST.middleware $ createMiddleware addStaticDirPolicy -- Need to have this first to serve static content
     ST.middleware $ GZ.gzip (GZ.def { GZ.gzipFiles = GZ.GzipCompress })
+
     ST.middleware logStdout
+
+    ST.middleware $ createMiddleware addStaticDirPolicy -- Need to have this first to serve static content
+
     ST.middleware $ checkApiKey apiKey
     ST.defaultHandler handleEx
 
