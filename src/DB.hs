@@ -28,7 +28,8 @@ maxVersion = 1000
 minVersion :: Int
 minVersion = 1
 
---TODO: Run this in a transaction
+-- Needs a transaction
+-- TODO: handle the delete case  - don't allow updates on a a deleted note
 saveExitingNote :: DBNote -> Connection -> IO (Either DBError NoteIdVersion)
 saveExitingNote dbNote con = do
     let (noteId, _, _) = getDBNote dbNote
@@ -87,8 +88,10 @@ maxFetchSize = FetchSize maxSize
 maxSize :: Int
 maxSize = 50
 
+-- TODO: Filter out deleted notes
 fetchNotes :: FetchSize -> Connection -> IO [DBNote]
 fetchNotes (FetchSize size) con = query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE MESSAGE <> '' ORDER BY UPDATED_AT DESC LIMIT (?)" (Only size):: IO [DBNote]
 
+-- TODO: Filter out deleted notes
 searchNotes :: T.Text -> Connection -> IO [DBNote]
 searchNotes searchCriteria con = query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE MESSAGE LIKE (?) ORDER BY UPDATED_AT DESC" (Only ("%" <> searchCriteria <> "%")) :: IO [DBNote]
