@@ -74,18 +74,18 @@ createSchema con =
       \ );"
      >> (pure $ ((), InitialisedDB))
 
-insertMessage :: (Text, Text) -> DBAction ()
-insertMessage (message, date) = \con ->
+insertMessage :: (Text, Text, Bool) -> DBAction ()
+insertMessage (message, date, deleted) = \con ->
   let dateTimeE = parseUTCTime date
   in
     case dateTimeE of
       Left x         -> ioError . userError $ x
-      Right dateTime -> execute con "INSERT INTO SCRIB(MESSAGE, CREATED_AT, UPDATED_AT) VALUES (?,?,?)" (message, dateTime, dateTime)
+      Right dateTime -> execute con "INSERT INTO SCRIB(MESSAGE, CREATED_AT, UPDATED_AT, DELETED) VALUES (?,?,?,?)" (message, dateTime, dateTime, deleted)
 
 insertMessageNumbered :: Int -> DBAction ()
 insertMessageNumbered item = \con ->
   let message = "# Test message " <> (pack . show $ item) <> "\n This is only a test" :: Text
-  in insertMessage (message, "2010-05-28T15:36:56.200") con
+  in insertMessage (message, "2010-05-28T15:36:56.200", False) con
 
 
 deleteSchema :: CleanUp -> DBAction ()

@@ -198,11 +198,11 @@ insertSeedDataSearchNotes _ = \con -> do
   traverse_
     (\msg -> insertMessage msg con)
     [
-      ("# Some Note\nYolo", "2020-06-01T15:36:56.200")
-    , ("# Another note\nMore and more", "2020-06-09T15:36:56.200")
-    , ("# Random Title\nThis is a blog article about ...", "2020-06-02T15:36:56.200")
-    , ("# Blog Article\nThis is an article about ...", "2020-06-01T15:36:56.200")
-    , ("# Whatever you like\nThis is a BloG article about ...", "2020-09-02T15:36:56.200")
+      ("# Some Note\nYolo", "2020-06-01T15:36:56.200", False)
+    , ("# Another note\nMore and more", "2020-06-09T15:36:56.200", False)
+    , ("# Random Title\nThis is a blog article about ...", "2020-06-02T15:36:56.200", False)
+    , ("# Blog Article\nThis is an article about ...", "2020-06-01T15:36:56.200", False)
+    , ("# Whatever you like\nThis is a BloG article about ...", "2020-09-02T15:36:56.200", False)
     ]
   pure ((), SeededDB)
 
@@ -212,8 +212,10 @@ insertSeedDataFetchNotes _ = \con -> do
   traverse_
     (\msg -> insertMessage msg con)
     [
-      ("# Some Note\nYolo", "2020-06-01T15:36:56.200")
-    , ("# Another note\nMore and more", "2020-06-09T15:36:56.200")
-    , ("# Blog Article\nThis is a blog article about..", "2020-06-02T15:36:56.200")
+      ("# Some Note\nYolo", "2020-06-01T15:36:56.200", False)
+    , ("# Another note\nMore and more", "2020-06-09T15:36:56.200", False)
+    , ("# This note is deleted\nSome random note", "2021-02-16T09:30:32.200", True)
+    , ("# Blog Article\nThis is a blog article about..", "2020-06-02T15:36:56.200", False)
+    , ("# Another deleted note\nThis is an old blog article about..", "2020-06-02T15:36:56.200", True)
     ]
   pure ((), SeededDB)
