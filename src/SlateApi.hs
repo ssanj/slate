@@ -18,7 +18,7 @@ import System.IO
 import Control.Monad.IO.Class               (liftIO, MonadIO)
 import Data.Aeson                           (ToJSON(..))
 import Database.SQLite.Simple               (Connection, withTransaction, withConnection)
-import Network.HTTP.Types.Status            (Status, created201, ok200, status400)
+import Network.HTTP.Types.Status            (Status, created201, ok200, status400, noContent204)
 import Network.Wai.Middleware.RequestLogger (logStdout)
 import Paths_slate                          (version)
 import Control.Exception                    (catch, IOException)
@@ -63,6 +63,11 @@ setupScotty apiKey =
        (Left errorMessage) -> withError errorMessage
        (Right noteIdVersion) -> maybe (jsonResponse created201 noteIdVersion) (const $ jsonResponse ok200 noteIdVersion) (_incomingNoteAndVersion note)
 
+    ST.delete "/note/:noteId" $ do
+      noteId        <- mkNoteId <$> ST.param "noteId"
+      withScribDb (deleteNote noteId)
+      ST.status noContent204
+
 
 printBanner :: IO ()
 printBanner = do
@@ -97,9 +102,11 @@ withDatabaseLocation dbName = databaseLocation <> "/" <> dbName
 withError :: Monad m => DBError -> SlateAction m ()
 withError dbError = ST.json (dbErrorToString dbError) >> ST.status status400
 
+-- TODO: Add surround with `catch`
 withScribDb :: MonadIO m => (Connection -> IO a) -> SlateAction m a
 withScribDb = liftIO . scribDB
 
+-- TODO: Add surround with `catch`
 withScribDbActionM :: MonadIO m => (Connection -> IO a) -> (a -> SlateAction m b) -> SlateAction m b
 withScribDbActionM cb conversion = do
   value  <- liftIO $ scribDB cb
@@ -125,3 +132,6 @@ searchForNotes query con = fmap (fmap getOutgoingNote) (searchNotes query con)
 
 retrieveTopNotes :: Connection -> IO [OutgoingNote]
 retrieveTopNotes con = fmap (fmap getOutgoingNote) (fetchNotes maxFetchSize con)
+
+deleteNote :: NoteId -> Connection -> IO ()
+deleteNote = deactivateNote

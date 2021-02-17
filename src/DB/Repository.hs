@@ -10,6 +10,7 @@ module DB.Repository
        ,  fetchNotes
        ,  fetchSize
        ,  searchNotes
+       ,  deactivateNote
        ,  maxFetchSize
        ) where
 
@@ -104,3 +105,12 @@ fetchNotes (FetchSize size) con = query con "SELECT ID, MESSAGE, VERSION FROM SC
 
 searchNotes :: T.Text -> Connection -> IO [DBNote]
 searchNotes searchCriteria con = query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE MESSAGE LIKE (?) AND DELETED = 0 ORDER BY UPDATED_AT DESC" (Only ("%" <> searchCriteria <> "%")) :: IO [DBNote]
+
+deactivateNote :: NoteId -> Connection -> IO ()
+deactivateNote noteId con =
+  executeNamed con
+    "UPDATE SCRIB SET DELETED = 1 WHERE ID = :id AND DELETED != 1"
+          [
+            ":id"         := noteId
+          ]
+
