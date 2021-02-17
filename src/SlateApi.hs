@@ -115,7 +115,7 @@ saveNote :: IncomingNote -> Connection -> IO (Either DBError NoteIdVersion)
 saveNote (IncomingNote noteText (Just noteIdAndVersion)) con =
   let (noteId, noteVersion) = getNoteIdAndNoteVersion noteIdAndVersion
       dbNoteE = createDBNote noteId noteText noteVersion
-  in either (pure . Left) (flip saveExitingNote $ con) dbNoteE
+  in either (pure . Left) (flip saveExistingNote $ con) dbNoteE
 saveNote (IncomingNote noteText Nothing) con =
     let newDBNoteE = mkNewDBNote noteText
     in either (pure . Left) (\dbNote -> Right <$> (saveNewNote dbNote con)) newDBNoteE

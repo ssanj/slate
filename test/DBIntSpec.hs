@@ -9,7 +9,7 @@ module DBIntSpec where
 import Scaffold
 
 import Test.Tasty.HUnit       ((@?=), Assertion)
-import DB                     (fetchNotes, fetchSize, searchNotes, saveNewNote, saveExitingNote)
+import DB                     (fetchNotes, fetchSize, searchNotes, saveNewNote, saveExistingNote)
 import Model                  (DBError(..))
 import Data.Foldable          (traverse_)
 import Data.Text              (Text)
@@ -59,7 +59,7 @@ assert_insert_existing_note_version_range_error _ = \con -> do
   case updatedNoteE of
     Left x -> runAssertionFailure $ "could not create updated note: " <> (show x)
     (Right updatedNote) -> do
-      resultE <- saveExitingNote updatedNote con
+      resultE <- saveExistingNote updatedNote con
       case resultE of
         Left dbError ->
           case dbError of
@@ -75,7 +75,7 @@ assert_insert_existing_note_version_mismatch _ = \con -> do
   case updatedNoteE of
     Left x -> runAssertionFailure $ "could not create updated note: " <> (show x)
     (Right updatedNote) -> do
-      resultE <- saveExitingNote updatedNote con
+      resultE <- saveExistingNote updatedNote con
       case resultE of
         Left dbError ->
           case dbError of
@@ -90,7 +90,7 @@ assert_insert_existing_note_not_found _ = \con -> do
   case updatedNoteE of
     Left x -> runAssertionFailure $ "could not create updated note: " <> (show x)
     (Right updatedNote) -> do
-      resultE <- saveExitingNote updatedNote con
+      resultE <- saveExistingNote updatedNote con
       case resultE of
         Left dbError ->
           case dbError of
@@ -106,7 +106,7 @@ assert_insert_existing_note _ = \con -> do
   case updatedNoteE of
     Left x -> runAssertionFailure $ "could not create updated note: " <> (show x)
     (Right updatedNote) -> do
-      resultE <- saveExitingNote updatedNote con
+      resultE <- saveExistingNote updatedNote con
       case resultE of
         Left x2 -> runAssertionFailure $ "could not save existing note: " <> (show x2)
         (Right noteIdVersion) -> do
@@ -199,7 +199,7 @@ assert_deleted_notes_cant_be_updated _ = \con -> do
   case updatedNoteE of
     Left x -> runAssertionFailure $ "could not create updated note: " <> (show x)
     (Right updatedNote) -> do
-      resultE <- saveExitingNote updatedNote con
+      resultE <- saveExistingNote updatedNote con
       case resultE of
         Left dbError ->
           case dbError of
