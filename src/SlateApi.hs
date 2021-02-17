@@ -10,9 +10,9 @@ module SlateApi
        ) where
 
 import Server
-import DB
+import DB.Repository
 import Model
-import Model.DBNote
+import DB.DBNote
 import System.IO
 
 import Control.Monad.IO.Class               (liftIO, MonadIO)

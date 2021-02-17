@@ -9,13 +9,13 @@ module DBIntSpec where
 import Scaffold
 
 import Test.Tasty.HUnit       ((@?=), Assertion)
-import DB                     (fetchNotes, fetchSize, searchNotes, saveNewNote, saveExistingNote)
+import DB.Repository          (fetchNotes, fetchSize, searchNotes, saveNewNote, saveExistingNote)
 import Model                  (DBError(..))
 import Data.Foldable          (traverse_)
 import Data.Text              (Text)
 import Database.SQLite.Simple (execute, query, Only(..))
 
-import qualified Model.DBNote as D
+import qualified DB.DBNote as D
 
 
 unit_fetchNotes :: Assertion

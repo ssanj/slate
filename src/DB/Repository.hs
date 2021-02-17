@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings   #-}
 
-module DB
+module DB.Repository
        (
           -- Data types
           FetchSize
@@ -14,7 +14,7 @@ module DB
        ) where
 
 import Model
-import Model.DBNote
+import DB.DBNote
 import Database.SQLite.Simple
 import Data.Maybe (listToMaybe)
 

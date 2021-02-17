@@ -3,10 +3,10 @@
 
 module DBPropSpec where
 
-import qualified Hedgehog              as H
-import qualified Hedgehog.Gen          as Gen
-import qualified Hedgehog.Range        as Range
-import qualified Model.DBNote          as D
+import qualified Hedgehog       as H
+import qualified Hedgehog.Gen   as Gen
+import qualified Hedgehog.Range as Range
+import qualified DB.DBNote      as D
 
 hprop_versionRange :: H.Property
 hprop_versionRange =

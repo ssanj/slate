@@ -5,7 +5,7 @@
 {-# LANGUAGE DerivingStrategies  #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Model.DBNote
+module DB.DBNote
        (
           -- Data types
 

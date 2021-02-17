@@ -3,7 +3,7 @@
 
 module DBSpec where
 
-import Model.DBNote
+import DB.DBNote
 import Test.Tasty.HUnit       ((@?=), Assertion, assertFailure)
 
 unit_determineUpdate_note_not_found :: Assertion

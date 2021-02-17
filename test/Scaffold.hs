@@ -5,7 +5,7 @@ module Scaffold where
 import Database.SQLite.Simple
 import Database.SQLite.Simple.Time (parseUTCTime)
 import Data.Tagged                 (Tagged(..), untag)
-import Model.DBNote                (DBNote, getDBNote, getNoteText)
+import DB.DBNote                   (DBNote, getDBNote, getNoteText)
 import Data.Text                   (Text, pack)
 import Control.Exception           (bracket)
 import Test.Tasty.HUnit            (assertFailure, Assertion)
