@@ -132,20 +132,19 @@ sameNoteVersion srcNoteVersion targetNoteVersion =
   else DifferentNoteVersions srcNoteVersion targetNoteVersion
 
 determineUpdate :: DBNote -> (Maybe NoteVersionAndDeletedFromDB) -> VersionRange -> UpdateAction
-determineUpdate dbNote Nothing _                               = NoMatchingNoteFound (mkNoteId . getDBNoteId $ dbNote)
-determineUpdate dbNote (Just dbVersionAndDelete) versionLimits =
-  let (NoteVersionAndDeletedFromDB dbVersion deleted)          = dbVersionAndDelete
-      (noteId, noteMessage, noteVersion)                       = getDBNote dbNote
-      validVersionRange                                        = versionRange versionLimits noteVersion
-      noteVersionEquality                                      = sameNoteVersion (retag dbVersion) noteVersion
-  in
-    case (validVersionRange, noteVersionEquality) of
-      ((ValidNoteVersionRange version),     (SameNoteVersion _))           ->
-        if (getBool deleted) then CantUpdateDeletedNote
-        else DoUpdate noteId noteMessage dbVersion (retag $ (+1) <$> version)
-      ((ValidNoteVersionRange _),           (DifferentNoteVersions v1 v2)) -> VersionMismatchError v1 v2
-      ((InvalidNoteVersionRange version _), (SameNoteVersion _ ))          -> InvalidVersionRangeError version
-      ((InvalidNoteVersionRange version _), (DifferentNoteVersions _ _))   -> InvalidVersionRangeError version
+determineUpdate dbNote Nothing _                                 = NoMatchingNoteFound (mkNoteId . getDBNoteId $ dbNote)
+determineUpdate dbNote (Just (NoteVersionAndDeletedFromDB dbVersion deleted)) versionLimits =
+  if (getBool deleted) then CantUpdateDeletedNote
+  else
+    let (noteId, noteMessage, noteVersion)                       = getDBNote dbNote
+        validVersionRange                                        = versionRange versionLimits noteVersion
+        noteVersionEquality                                      = sameNoteVersion (retag dbVersion) noteVersion
+    in
+      case (validVersionRange, noteVersionEquality) of
+        ((ValidNoteVersionRange version),     (SameNoteVersion _))           -> DoUpdate noteId noteMessage dbVersion (retag $ (+1) <$> version)
+        ((ValidNoteVersionRange _),           (DifferentNoteVersions v1 v2)) -> VersionMismatchError v1 v2
+        ((InvalidNoteVersionRange version _), (SameNoteVersion _ ))          -> InvalidVersionRangeError version
+        ((InvalidNoteVersionRange version _), (DifferentNoteVersions _ _))   -> InvalidVersionRangeError version
 
 mkNoteIdVersion :: NoteId -> NoteVersion -> NoteIdVersion
 mkNoteIdVersion = NoteIdVersion
