@@ -202,6 +202,7 @@ insertSeedDataSearchNotes _ = \con -> do
     , ("# Another note\nMore and more", "2020-06-09T15:36:56.200", False)
     , ("# Random Title\nThis is a blog article about ...", "2020-06-02T15:36:56.200", False)
     , ("# Blog Article\nThis is an article about ...", "2020-06-01T15:36:56.200", False)
+    , ("# Deleted Title\nThis is a deleted blog article about ...", "2020-06-02T15:36:56.200", True)
     , ("# Whatever you like\nThis is a BloG article about ...", "2020-09-02T15:36:56.200", False)
     ]
   pure ((), SeededDB)

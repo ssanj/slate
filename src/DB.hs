@@ -88,10 +88,8 @@ maxFetchSize = FetchSize maxSize
 maxSize :: Int
 maxSize = 50
 
--- TODO: Filter out deleted notes
 fetchNotes :: FetchSize -> Connection -> IO [DBNote]
 fetchNotes (FetchSize size) con = query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE MESSAGE <> '' AND DELETED = 0 ORDER BY UPDATED_AT DESC LIMIT (?)" (Only size):: IO [DBNote]
 
--- TODO: Filter out deleted notes
 searchNotes :: T.Text -> Connection -> IO [DBNote]
-searchNotes searchCriteria con = query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE MESSAGE LIKE (?) ORDER BY UPDATED_AT DESC" (Only ("%" <> searchCriteria <> "%")) :: IO [DBNote]
+searchNotes searchCriteria con = query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE MESSAGE LIKE (?) AND DELETED = 0 ORDER BY UPDATED_AT DESC" (Only ("%" <> searchCriteria <> "%")) :: IO [DBNote]
