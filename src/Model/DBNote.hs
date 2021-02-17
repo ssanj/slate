@@ -95,7 +95,7 @@ data NoteIdVersion =
   } deriving stock (Eq, Show)
 
 -- TODO: We could simply use NoteId, NoteText and NoteVersion here
-data DBNote = DBNote { _dbNoteId :: Int, _dbNoteText :: Text, _dbNoteVersion :: Int, _dbIsDeleted :: Bool } deriving stock (Eq, Show)
+data DBNote = DBNote { _dbNoteId :: Int, _dbNoteText :: Text, _dbNoteVersion :: Int } deriving stock (Eq, Show)
 
 newtype NewDBNote = NewDBNote {  _newdbNoteText ::NoteText } deriving stock (Eq, Show)
 
@@ -135,7 +135,7 @@ determineUpdate :: DBNote -> (Maybe NoteVersionAndDeletedFromDB) -> VersionRange
 determineUpdate dbNote Nothing _                               = NoMatchingNoteFound (mkNoteId . getDBNoteId $ dbNote)
 determineUpdate dbNote (Just dbVersionAndDelete) versionLimits =
   let (NoteVersionAndDeletedFromDB dbVersion deleted)          = dbVersionAndDelete
-      (noteId, noteMessage, noteVersion, _)                    = getDBNote dbNote
+      (noteId, noteMessage, noteVersion)                       = getDBNote dbNote
       validVersionRange                                        = versionRange versionLimits noteVersion
       noteVersionEquality                                      = sameNoteVersion (retag dbVersion) noteVersion
   in
@@ -177,15 +177,15 @@ getBool = untag
 getAnyVersion :: TInt a -> Int
 getAnyVersion = untag
 
-getDBNote :: DBNote -> (NoteId, NoteText, NoteVersion, NoteDeleted)
-getDBNote (DBNote noteId noteText noteVersion noteDeleted) = ((Tagged noteId), (NoteText noteText), (Tagged noteVersion), (Tagged noteDeleted))
+getDBNote :: DBNote -> (NoteId, NoteText, NoteVersion)
+getDBNote (DBNote noteId noteText noteVersion) = ((Tagged noteId), (NoteText noteText), (Tagged noteVersion))
 
 getNoteText :: NoteText -> Text
 getNoteText (NoteText noteText) = noteText
 
 getDBNoteText :: DBNote -> Text
 getDBNoteText dbNote =
-  let (_, note, _, _) = getDBNote dbNote
+  let (_, note, _) = getDBNote dbNote
   in getNoteText note
 
 getDBNoteId :: DBNote -> Int
@@ -199,7 +199,7 @@ getNewDBNoteText (NewDBNote noteText) = getNoteText noteText
 
 createDBNote :: NoteId -> Text -> NoteVersion -> Either DBError DBNote
 createDBNote noteId noteText noteVersion =
-  (\(NoteText validNoteText) -> DBNote (unTagged noteId) validNoteText (unTagged noteVersion) False) <$> (createNoteText noteText)
+  (\(NoteText validNoteText) -> DBNote (unTagged noteId) validNoteText (unTagged noteVersion)) <$> (createNoteText noteText)
 
 createNoteText :: Text -> Either DBError NoteText
 createNoteText noteText =
@@ -214,7 +214,7 @@ getNoteVersion = untag . _noteIdVersionVersion
 
 getOutgoingNote :: DBNote -> OutgoingNote
 getOutgoingNote dbNote =
-  let (noteId, noteText, noteVersion, _) = getDBNote dbNote
+  let (noteId, noteText, noteVersion) = getDBNote dbNote
   in OutgoingNote (getNoteText noteText) (getInt noteId) (getInt noteVersion)
 
 getNoteIdAndNoteVersion :: NoteIdAndVersion -> (NoteId, NoteVersion)
@@ -222,13 +222,13 @@ getNoteIdAndNoteVersion (NoteIdAndVersion noteId noteVersion) = (mkNoteId noteId
 -- DB FromRow/ToRow
 
 instance FromRow DBNote where
-  fromRow = DBNote <$> field <*> field <*> field <*> field
+  fromRow = DBNote <$> field <*> field <*> field
 
 instance FromRow NoteVersionAndDeletedFromDB where
   fromRow = mkNoteVersionAndDeletetionFromDB <$> field <*> field
 
 instance ToRow DBNote where
-  toRow (DBNote id_ message_ version_ deleted_) = toRow (id_, message_, version_, deleted_)
+  toRow (DBNote id_ message_ version_ ) = toRow (id_, message_, version_)
 
 instance ToJSON NoteIdVersion where
   toJSON (NoteIdVersion noteId noteVersion) =

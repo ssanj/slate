@@ -113,7 +113,7 @@ assert_insert_existing_note _ = \con -> do
           let noteId = D.getNoteId noteIdVersion
           noteId                         @?= 1000
           (D.getNoteVersion noteIdVersion) @?= 2
-          dbNotes <- query con "SELECT ID, MESSAGE, VERSION, DELETED FROM SCRIB WHERE ID = ?" (Only noteId) :: IO [D.DBNote]
+          dbNotes <- query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE ID = ?" (Only noteId) :: IO [D.DBNote]
 
           case dbNotes of
             [dbNote] ->
@@ -139,7 +139,7 @@ assert_insert_new_note _ = \con -> do
       noteIdAndVersion <- saveNewNote newNote con
       let nid = D.getNoteId noteIdAndVersion
           nv  = D.getNoteVersion noteIdAndVersion
-      notes <- query con "SELECT ID, MESSAGE, VERSION, DELETED FROM SCRIB WHERE ID = ?" (Only nid)
+      notes <- query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE ID = ?" (Only nid)
       case notes of
         [] -> runAssertionFailure $ "expected a matching note with id: " <> (show nid)
         [note] -> do
@@ -156,6 +156,7 @@ assert_fetchNotes _ = \con -> do
     (note:_) -> do
       length notes @?= 1
       runAssertion $ assertDBNote note (@?= "# Another note\nMore and more")
+
 
 assert_fetchNotes_when_no_notes :: SeededDB -> DBAction ((), CleanUp)
 assert_fetchNotes_when_no_notes _ = \con -> do
@@ -182,6 +183,7 @@ assert_searchNotes _ = \con -> do
               ] :: [(Text, Text)]
       runAssertion $ (traverse_ (\pairs -> (fst pairs) @?= (snd pairs)) dbNoteNotePairs)
 
+
 assert_no_searchNotes :: SeededDB -> DBAction ((), CleanUp)
 assert_no_searchNotes _ = \con -> do
   notes <- searchNotes "blog" con
@@ -205,11 +207,13 @@ assert_deleted_notes_cant_be_updated _ = \con -> do
             otherError        -> runAssertionFailure $ "Expected InvalidUpdate error but got: " <> (show otherError)
         Right found -> runAssertionFailure $ "should not save a deleted note: " <> (show found)
 
+
 -- DATABASE SEED DATA
 
 
 emptyNotes :: InitialisedDB -> DBAction ((), SeededDB)
 emptyNotes _ = \_ ->  pure ((), SeededDB)
+
 
 insertSeedDataSearchNotes :: InitialisedDB -> DBAction ((), SeededDB)
 insertSeedDataSearchNotes _ = \con -> do
@@ -225,6 +229,7 @@ insertSeedDataSearchNotes _ = \con -> do
     ]
   pure ((), SeededDB)
 
+
 insertSeedDataFetchNotes :: InitialisedDB -> DBAction ((), SeededDB)
 insertSeedDataFetchNotes _ = \con -> do
   traverse_ (\n -> insertMessageNumbered n con) [1..20]
@@ -238,3 +243,4 @@ insertSeedDataFetchNotes _ = \con -> do
     , ("# Another deleted note\nThis is an old blog article about..", "2020-06-02T15:36:56.200", True)
     ]
   pure ((), SeededDB)
+

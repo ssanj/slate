@@ -33,7 +33,7 @@ minVersion = 1
 -- TODO: handle the delete case  - don't allow updates on a a deleted note
 saveExitingNote :: DBNote -> Connection -> IO (Either DBError NoteIdVersion)
 saveExitingNote dbNote con = do
-    let (noteId, _, _, _) = getDBNote dbNote
+    let (noteId, _, _) = getDBNote dbNote
     maybeDbVersionAndDeleteFlag <- getNoteVersionAndDeleteStatusFromDB noteId con
     let updateAction = determineUpdate dbNote maybeDbVersionAndDeleteFlag (VersionRange minVersion maxVersion)
     case updateAction of
@@ -93,7 +93,7 @@ maxSize :: Int
 maxSize = 50
 
 fetchNotes :: FetchSize -> Connection -> IO [DBNote]
-fetchNotes (FetchSize size) con = query con "SELECT ID, MESSAGE, VERSION, DELETED FROM SCRIB WHERE MESSAGE <> '' AND DELETED = 0 ORDER BY UPDATED_AT DESC LIMIT (?)" (Only size):: IO [DBNote]
+fetchNotes (FetchSize size) con = query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE MESSAGE <> '' AND DELETED = 0 ORDER BY UPDATED_AT DESC LIMIT (?)" (Only size):: IO [DBNote]
 
 searchNotes :: T.Text -> Connection -> IO [DBNote]
-searchNotes searchCriteria con = query con "SELECT ID, MESSAGE, VERSION, DELETED FROM SCRIB WHERE MESSAGE LIKE (?) AND DELETED = 0 ORDER BY UPDATED_AT DESC" (Only ("%" <> searchCriteria <> "%")) :: IO [DBNote]
+searchNotes searchCriteria con = query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE MESSAGE LIKE (?) AND DELETED = 0 ORDER BY UPDATED_AT DESC" (Only ("%" <> searchCriteria <> "%")) :: IO [DBNote]
