@@ -45,6 +45,9 @@ unit_insert_existing_note_version_mismatch = dbNoteTest emptyNotes assert_insert
 unit_insert_existing_note_version_range_error :: Assertion
 unit_insert_existing_note_version_range_error = dbNoteTest emptyNotes assert_insert_existing_note_version_range_error
 
+unit_deleted_Note :: Assertion
+unit_deleted_Note = dbNoteTest emptyNotes assert_deleted_notes_cant_be_updated
+
 
 -- ASSERTIONS ACTIONS
 
@@ -110,7 +113,7 @@ assert_insert_existing_note _ = \con -> do
           let noteId = D.getNoteId noteIdVersion
           noteId                         @?= 1000
           (D.getNoteVersion noteIdVersion) @?= 2
-          dbNotes <- query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE ID = ?" (Only noteId) :: IO [D.DBNote]
+          dbNotes <- query con "SELECT ID, MESSAGE, VERSION, DELETED FROM SCRIB WHERE ID = ?" (Only noteId) :: IO [D.DBNote]
 
           case dbNotes of
             [dbNote] ->
@@ -136,7 +139,7 @@ assert_insert_new_note _ = \con -> do
       noteIdAndVersion <- saveNewNote newNote con
       let nid = D.getNoteId noteIdAndVersion
           nv  = D.getNoteVersion noteIdAndVersion
-      notes <- query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE ID = ?" (Only nid)
+      notes <- query con "SELECT ID, MESSAGE, VERSION, DELETED FROM SCRIB WHERE ID = ?" (Only nid)
       case notes of
         [] -> runAssertionFailure $ "expected a matching note with id: " <> (show nid)
         [note] -> do
@@ -186,6 +189,21 @@ assert_no_searchNotes _ = \con -> do
     []           -> runAssertionSuccess
     matchedNotes -> runAssertionFailure $ "Expected no search matches but got: " <> (show matchedNotes)
 
+
+assert_deleted_notes_cant_be_updated :: SeededDB -> DBAction ((), CleanUp)
+assert_deleted_notes_cant_be_updated _ = \con -> do
+  execute con "INSERT INTO SCRIB (ID, MESSAGE, DELETED) VALUES (1000, ?, 1)" (Only ("Some strange message" :: Text))
+  let updatedNoteE = D.createDBNote (D.mkNoteId 1000) "Some new message" (D.mkNoteVersion 1)
+  case updatedNoteE of
+    Left x -> runAssertionFailure $ "could not create updated note: " <> (show x)
+    (Right updatedNote) -> do
+      resultE <- saveExitingNote updatedNote con
+      case resultE of
+        Left dbError ->
+          case dbError of
+            (InvalidUpdate _) -> runAssertionSuccess
+            otherError        -> runAssertionFailure $ "Expected InvalidUpdate error but got: " <> (show otherError)
+        Right found -> runAssertionFailure $ "should not save a deleted note: " <> (show found)
 
 -- DATABASE SEED DATA
 

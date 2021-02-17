@@ -35,7 +35,7 @@ data DBTest =
 
 assertDBNote :: DBNote -> (Text -> IO ()) -> IO ()
 assertDBNote dbNote assertion =
-  let (_, dbMessage, _) = getDBNote dbNote
+  let (_, dbMessage, _, _) = getDBNote dbNote
   in assertion $ getNoteText dbMessage
 
 testDatabaseName :: DBName

@@ -16,6 +16,7 @@ module DB
 import Model
 import Model.DBNote
 import Database.SQLite.Simple
+import Data.Maybe (listToMaybe)
 
 import Control.Applicative (liftA2)
 import qualified Data.Text  as T
@@ -32,9 +33,9 @@ minVersion = 1
 -- TODO: handle the delete case  - don't allow updates on a a deleted note
 saveExitingNote :: DBNote -> Connection -> IO (Either DBError NoteIdVersion)
 saveExitingNote dbNote con = do
-    let (noteId, _, _) = getDBNote dbNote
-    dbVersions <- getNoteVersionFromDB noteId con
-    let updateAction = determineUpdate dbNote dbVersions (VersionRange minVersion maxVersion)
+    let (noteId, _, _, _) = getDBNote dbNote
+    maybeDbVersionAndDeleteFlag <- getNoteVersionAndDeleteStatusFromDB noteId con
+    let updateAction = determineUpdate dbNote maybeDbVersionAndDeleteFlag (VersionRange minVersion maxVersion)
     case updateAction of
       NoMatchingNoteFound noteId_ -> pure . Left $ ItemNotFound (getInt noteId_)
 
@@ -48,13 +49,16 @@ saveExitingNote dbNote con = do
       (InvalidVersionRangeError version) ->
         pure . Left $ InvalidVersion version
 
+      CantUpdateDeletedNote -> pure . Left $ InvalidUpdate (getInt noteId)
 
-getNoteVersionFromDB :: NoteId -> Connection -> IO [NoteVersionFromDB]
-getNoteVersionFromDB noteId con =
-  let dbVersions = query con "SELECT VERSION FROM SCRIB WHERE ID = ?" (Only noteId) :: IO [Only NoteVersionFromDB]
-  in ((\(Only v) -> v) <$>) <$> dbVersions
+-- TODO: Should we excluded deleted notes?
+getNoteVersionAndDeleteStatusFromDB :: NoteId -> Connection -> IO (Maybe NoteVersionAndDeletedFromDB)
+getNoteVersionAndDeleteStatusFromDB noteId con =
+  let resultIO = query con "SELECT VERSION, DELETED FROM SCRIB WHERE ID = ?" (Only noteId) :: IO [NoteVersionAndDeletedFromDB]
+  in listToMaybe <$> resultIO
 
 
+-- TODO: We can exclude deleted directly here
 updateNote :: NoteId -> NoteText -> NoteVersionFromDB  -> UpdatedNoteVersion -> Connection -> IO ()
 updateNote noteId noteMessage dbVersion newVersion con =
   executeNamed con
@@ -89,7 +93,7 @@ maxSize :: Int
 maxSize = 50
 
 fetchNotes :: FetchSize -> Connection -> IO [DBNote]
-fetchNotes (FetchSize size) con = query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE MESSAGE <> '' AND DELETED = 0 ORDER BY UPDATED_AT DESC LIMIT (?)" (Only size):: IO [DBNote]
+fetchNotes (FetchSize size) con = query con "SELECT ID, MESSAGE, VERSION, DELETED FROM SCRIB WHERE MESSAGE <> '' AND DELETED = 0 ORDER BY UPDATED_AT DESC LIMIT (?)" (Only size):: IO [DBNote]
 
 searchNotes :: T.Text -> Connection -> IO [DBNote]
-searchNotes searchCriteria con = query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE MESSAGE LIKE (?) AND DELETED = 0 ORDER BY UPDATED_AT DESC" (Only ("%" <> searchCriteria <> "%")) :: IO [DBNote]
+searchNotes searchCriteria con = query con "SELECT ID, MESSAGE, VERSION, DELETED FROM SCRIB WHERE MESSAGE LIKE (?) AND DELETED = 0 ORDER BY UPDATED_AT DESC" (Only ("%" <> searchCriteria <> "%")) :: IO [DBNote]

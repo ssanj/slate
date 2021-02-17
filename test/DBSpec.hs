@@ -12,7 +12,7 @@ unit_determineUpdate_note_not_found =
   in case dbNoteE of
       Left x       -> assertFailure (show x)
       Right dbNote ->
-        let result = determineUpdate dbNote [] undefined
+        let result = determineUpdate dbNote Nothing undefined
         in
           case result of
             NoMatchingNoteFound noteId -> noteId @?= 1000
@@ -25,7 +25,7 @@ unit_determineUpdate_doUpdate =
   in case dbNoteE of
       Left x       -> assertFailure (show x)
       Right dbNote ->
-        let result = determineUpdate dbNote [mkNoteVersionFromDB 1] (VersionRange 1 3)
+        let result = determineUpdate dbNote (Just $ mkNoteVersionAndDeletetionFromDB 1 False) (VersionRange 1 3)
         in
           case result of
             (DoUpdate noteId  noteMessage dbVersion updatedVersion) -> do
@@ -42,7 +42,7 @@ unit_determineUpdate_versionMismatch =
   in case dbNoteE of
       Left x       -> assertFailure (show x)
       Right dbNote ->
-        let result = determineUpdate dbNote [mkNoteVersionFromDB 1] (VersionRange 1 5)
+        let result = determineUpdate dbNote (Just $ mkNoteVersionAndDeletetionFromDB 1 False) (VersionRange 1 5)
         in
           case result of
             (VersionMismatchError v1 v2) -> do
@@ -57,7 +57,7 @@ unit_determineUpdate_invalidVersionRange_diff_note_version =
   in case dbNoteE of
       Left x       -> assertFailure (show x)
       Right dbNote ->
-        let result = determineUpdate dbNote [mkNoteVersionFromDB 1] (VersionRange 1 5)
+        let result = determineUpdate dbNote (Just $ mkNoteVersionAndDeletetionFromDB 1 False) (VersionRange 1 5)
         in
           case result of
             (InvalidVersionRangeError v1) -> v1 @?= 10
@@ -69,8 +69,10 @@ unit_determineUpdate_invalidVersionRange_same_note_version =
   in case dbNoteE of
       Left x       -> assertFailure (show x)
       Right dbNote ->
-        let result = determineUpdate dbNote [mkNoteVersionFromDB 10] (VersionRange 1 5)
+        let result = determineUpdate dbNote (Just $ mkNoteVersionAndDeletetionFromDB 10 False) (VersionRange 1 5)
         in
           case result of
             (InvalidVersionRangeError v1) -> v1 @?= 10
             other -> assertFailure $ "expected InvalidVersionRangeError but got: " <> (show other)
+
+-- Add a test for when delete is true
