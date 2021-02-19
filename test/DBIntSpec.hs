@@ -9,11 +9,11 @@ module DBIntSpec where
 import Scaffold
 
 import Test.Tasty.HUnit       ((@?=), Assertion)
-import DB.Repository          (fetchNotes, fetchSize, searchNotes, saveNewNote, saveExistingNote)
+import DB.Repository          (fetchNotes, fetchSize, searchNotes, saveNewNote, saveExistingNote, deactivateNote)
 import Model                  (DBError(..))
 import Data.Foldable          (traverse_)
 import Data.Text              (Text)
-import Database.SQLite.Simple (execute, query, Only(..))
+import Database.SQLite.Simple (execute, query, query_, Only(..))
 
 import qualified DB.DBNote as D
 
@@ -45,8 +45,11 @@ unit_insert_existing_note_version_mismatch = dbNoteTest emptyNotes assert_insert
 unit_insert_existing_note_version_range_error :: Assertion
 unit_insert_existing_note_version_range_error = dbNoteTest emptyNotes assert_insert_existing_note_version_range_error
 
-unit_deleted_Note :: Assertion
-unit_deleted_Note = dbNoteTest emptyNotes assert_deleted_notes_cant_be_updated
+unit_deleted_note_cant_be_updated :: Assertion
+unit_deleted_note_cant_be_updated = dbNoteTest emptyNotes assert_deleted_notes_cant_be_updated
+
+unit_deleting_a_note_sets_deleted_flag :: Assertion
+unit_deleting_a_note_sets_deleted_flag = dbNoteTest emptyNotes assert_delete_note
 
 
 -- ASSERTIONS ACTIONS
@@ -206,6 +209,30 @@ assert_deleted_notes_cant_be_updated _ = \con -> do
             (InvalidUpdate _) -> runAssertionSuccess
             otherError        -> runAssertionFailure $ "Expected InvalidUpdate error but got: " <> (show otherError)
         Right found -> runAssertionFailure $ "should not save a deleted note: " <> (show found)
+
+
+assert_delete_note :: SeededDB -> DBAction ((), CleanUp)
+assert_delete_note _ = \con -> do
+  execute con "INSERT INTO SCRIB (ID, MESSAGE) VALUES (1000, ?)" (Only ("Some strange message1" :: Text))
+  execute con "INSERT INTO SCRIB (ID, MESSAGE) VALUES (1001, ?)" (Only ("Some strange message2" :: Text))
+  execute con "INSERT INTO SCRIB (ID, MESSAGE) VALUES (1002, ?)" (Only ("Some strange message3" :: Text))
+  let noteId = D.mkNoteId 1001
+  resultsBefore <- query_ con "SELECT ID, DELETED FROM SCRIB ORDER BY ID" :: IO [(Int, Bool)]
+  case resultsBefore of
+    [t0,t1,t2] -> do
+      t0 @?= (1000, False)
+      t1 @?= (1001, False)
+      t2 @?= (1002, False)
+      deactivateNote noteId con
+      resultsAfter <- query_ con "SELECT ID, DELETED FROM SCRIB ORDER BY ID" :: IO [(Int, Bool)]
+      case resultsAfter of
+        [t0', t1', t2'] -> do
+          t0' @?= (1000, False)
+          t1' @?= (1001, True)
+          t2' @?= (1002, False)
+          runAssertionSuccess
+        others              -> runAssertionFailure $ "Expected three results with ids: 1000,1001,1002 but got:" <> (show others)
+    others              -> runAssertionFailure $ "Expected three results with ids: 1000,1001,1002 but got: " <> (show others)
 
 
 -- DATABASE SEED DATA

@@ -102,11 +102,9 @@ withDatabaseLocation dbName = databaseLocation <> "/" <> dbName
 withError :: Monad m => DBError -> SlateAction m ()
 withError dbError = ST.json (dbErrorToString dbError) >> ST.status status400
 
--- TODO: Add surround with `catch`
 withScribDb :: MonadIO m => (Connection -> IO a) -> SlateAction m a
 withScribDb = liftIO . scribDB
 
--- TODO: Add surround with `catch`
 withScribDbActionM :: MonadIO m => (Connection -> IO a) -> (a -> SlateAction m b) -> SlateAction m b
 withScribDbActionM cb conversion = do
   value  <- liftIO $ scribDB cb

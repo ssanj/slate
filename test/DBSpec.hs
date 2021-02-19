@@ -75,4 +75,15 @@ unit_determineUpdate_invalidVersionRange_same_note_version =
             (InvalidVersionRangeError v1) -> v1 @?= 10
             other -> assertFailure $ "expected InvalidVersionRangeError but got: " <> (show other)
 
--- Add a test for when delete is true
+unit_determineUpdate_cant_update_deleted_note :: Assertion
+unit_determineUpdate_cant_update_deleted_note =
+  let dbNoteE = createDBNote (mkNoteId 1000) "blee" (mkNoteVersion 1)
+  in case dbNoteE of
+      Left x       -> assertFailure (show x)
+      Right dbNote ->
+        let result = determineUpdate dbNote (Just $ mkNoteVersionAndDeletetionFromDB 1 True) (VersionRange 1 5)
+        in
+          case result of
+            CantUpdateDeletedNote -> pure ()
+            other -> assertFailure $ "expected CantUpdateDeletedNote but got: " <> (show other)
+

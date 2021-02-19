@@ -89,7 +89,7 @@ insertMessageNumbered item = \con ->
 
 
 deleteSchema :: CleanUp -> DBAction ()
-deleteSchema _ con= execute_ con "DROP TABLE IF EXISTS SCRIB"
+deleteSchema _ con = execute_ con "DROP TABLE IF EXISTS SCRIB"
 
 runAssertion :: IO a -> IO (a, CleanUp)
 runAssertion action = (\a -> (a, AssertionRun)) <$> action
