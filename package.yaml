@@ -93,6 +93,8 @@ tests:
     - tasty
     - tasty-discover
     - tasty-hunit
+    - tasty-hspec
+    - hspec
     - tasty-hedgehog
     - hedgehog
     - tagged
@@ -105,3 +107,5 @@ tests:
     - http-types
     - binary
     - bytestring
+    - hspec-wai
+    - wai

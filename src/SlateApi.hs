@@ -7,6 +7,7 @@ module SlateApi
        (
           -- Functions
          server
+       , getIndexFile
        ) where
 
 import Server
@@ -47,7 +48,7 @@ setupScotty apiKey =
     ST.middleware $ checkApiKey apiKey
     ST.defaultHandler handleEx
 
-    ST.get "/" $ ST.file "./static/index.html"
+    getIndexFile
 
     ST.get "/notes" $ do
       withScribDbActionM retrieveTopNotes ST.json
@@ -63,11 +64,18 @@ setupScotty apiKey =
        (Left errorMessage) -> withError errorMessage
        (Right noteIdVersion) -> maybe (jsonResponse created201 noteIdVersion) (const $ jsonResponse ok200 noteIdVersion) (_incomingNoteAndVersion note)
 
-    ST.delete "/note/:noteId" $ do
-      noteId        <- mkNoteId <$> ST.param "noteId"
-      withScribDb (deleteNote noteId)
-      ST.status noContent204
+    deleteNoteEndpoint
 
+
+getIndexFile :: ST.ScottyT Except IO ()
+getIndexFile = ST.get "/" $ ST.file "./static/index.html"
+
+deleteNoteEndpoint ::ST.ScottyT Except IO ()
+deleteNoteEndpoint =
+  ST.delete "/note/:noteId" $ do
+    noteId        <- mkNoteId <$> ST.param "noteId"
+    withScribDb (deleteNote noteId)
+    ST.status noContent204
 
 printBanner :: IO ()
 printBanner = do
