@@ -20,12 +20,11 @@ import Control.Monad.IO.Class               (liftIO, MonadIO)
 import Data.Aeson                           (ToJSON(..))
 import Database.SQLite.Simple               (Connection, withTransaction, withConnection)
 import Network.HTTP.Types.Status            (Status, created201, ok200, status400, noContent204)
-import Network.Wai.Middleware.RequestLogger (logStdout)
+
 import Paths_slate                          (version)
 import Control.Exception                    (catch, IOException)
 import Control.DeepSeq                      (deepseq)
 
-import qualified Network.Wai.Middleware.Gzip as GZ
 import qualified Web.Scotty.Trans            as ST
 import qualified Data.Text                   as T
 import qualified Data.Text.IO                as T (putStrLn, putStr)
@@ -39,38 +38,54 @@ server apiKey = do
 setupScotty :: ApiKey -> IO ()
 setupScotty apiKey =
   ST.scottyOptsT (serverOptions 3000) id $ do
-    ST.middleware $ GZ.gzip (GZ.def { GZ.gzipFiles = GZ.GzipCompress })
+    sequence_ $ slateMiddleware apiKey
 
-    ST.middleware logStdout
-
-    ST.middleware $ createMiddleware addStaticDirPolicy -- Need to have this first to serve static content
-
-    ST.middleware $ checkApiKey apiKey
     ST.defaultHandler handleEx
 
     getIndexFile
 
-    ST.get "/notes" $ do
-      withScribDbActionM retrieveTopNotes ST.json
+    getNotes
 
-    ST.get "/search" $ do
-      query <- ST.param "q"
-      withScribDbActionM (searchForNotes query) ST.json
+    performSearch
 
-    ST.post "/note" $ do
-      (note :: IncomingNote) <- jsonErrorHandle
-      noteIdE <- withScribDb (saveNote note)
-      case noteIdE of
-       (Left errorMessage) -> withError errorMessage
-       (Right noteIdVersion) -> maybe (jsonResponse created201 noteIdVersion) (const $ jsonResponse ok200 noteIdVersion) (_incomingNoteAndVersion note)
+    createNote
 
     deleteNoteEndpoint
 
 
-getIndexFile :: ST.ScottyT Except IO ()
+slateMiddleware :: ApiKey -> [SlateScottyAction]
+slateMiddleware apiKey =
+  [
+    ST.middleware zipMiddleware
+  , ST.middleware loggingMiddleware
+  , ST.middleware staticFileMiddleware
+  , ST.middleware $ checkApiKeyMiddleware apiKey
+  ]
+
+createNote :: SlateScottyAction
+createNote =
+  ST.post "/note" $ do
+    (note :: IncomingNote) <- jsonErrorHandle
+    noteIdE <- withScribDb (saveNote note)
+    case noteIdE of
+     (Left errorMessage) -> withError errorMessage
+     (Right noteIdVersion) -> maybe (jsonResponse created201 noteIdVersion) (const $ jsonResponse ok200 noteIdVersion) (_incomingNoteAndVersion note)
+
+
+performSearch :: SlateScottyAction
+performSearch =
+    ST.get "/search" $ do
+      query <- ST.param "q"
+      withScribDbActionM (searchForNotes query) ST.json
+
+
+getNotes :: SlateScottyAction
+getNotes = ST.get "/notes" $ withScribDbActionM retrieveTopNotes ST.json
+
+getIndexFile :: SlateScottyAction
 getIndexFile = ST.get "/" $ ST.file "./static/index.html"
 
-deleteNoteEndpoint ::ST.ScottyT Except IO ()
+deleteNoteEndpoint ::SlateScottyAction
 deleteNoteEndpoint =
   ST.delete "/note/:noteId" $ do
     noteId        <- mkNoteId <$> ST.param "noteId"

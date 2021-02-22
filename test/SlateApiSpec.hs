@@ -6,16 +6,10 @@ module SlateApiSpec where
 
 import           Test.Hspec
 import           Test.Hspec.Wai
--- import           Test.Hspec.Wai.Matcher (bodyEquals)
--- import           Test.Hspec.Wai.JSON
-
--- import qualified Web.Scotty as S
--- import           Data.Aeson (Value(..), object, (.=))
 
 import qualified  Web.Scotty.Trans     as ST
 import qualified  Data.ByteString.Lazy as LB
 import qualified  Data.Text            as T
--- import qualified  Data.Text.Lazy       as LT
 import qualified  Data.Text.Encoding   as TE
 
 import            SlateApi (getIndexFile)
@@ -42,8 +36,8 @@ spec_root =
       it "responds with 200" $ do
         get "/" `shouldRespondWith` 200 { matchBody =  bodyContaining "<title>Scrib - Home</title>" }
 
-  --   it "responds with 'hello'" $ do
-  --     get "/" `shouldRespondWith` "hello"
+    -- it "responds with 'hello'" $ do
+    --   get "/notes" `shouldRespondWith` 401
 
   --   it "responds with 200 / 'hello'" $ do
   --     get "/" `shouldRespondWith` "hello" {matchStatus = 200}

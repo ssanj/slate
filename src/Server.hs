@@ -8,12 +8,16 @@ module Server
 
           Except(..)
        ,  SlateAction
+       ,  SlateScottyAction
 
           -- FUNCTIONS
 
        ,  addStaticDirPolicy
        ,  createMiddleware
-       ,  checkApiKey
+       ,  loggingMiddleware
+       ,  staticFileMiddleware
+       ,  zipMiddleware
+       ,  checkApiKeyMiddleware
        ,  handleEx
        ,  jsonErrorHandle
        ,  serverOptions
@@ -21,18 +25,19 @@ module Server
 
 import Model (ApiKey(..))
 
-import Data.String            (fromString)
-import Control.Monad          (void, when)
-import Control.Monad.IO.Class (MonadIO)
-import Data.List              (find)
-import Data.Bool              (bool)
-import Data.CaseInsensitive   (CI)
-import Data.ByteString        (ByteString)
-import Network.HTTP.Types     (status422, status400, status500)
-import Data.Aeson             (FromJSON(..), eitherDecode, Result(..), fromJSON)
-import Model                  (OutgoingError(..))
-import Data.Default.Class     (Default(..))
-import Control.Applicative    ((<|>))
+import Data.String                          (fromString)
+import Control.Monad                        (void, when)
+import Control.Monad.IO.Class               (MonadIO)
+import Data.List                            (find)
+import Data.Bool                            (bool)
+import Data.CaseInsensitive                 (CI)
+import Data.ByteString                      (ByteString)
+import Network.HTTP.Types                   (status422, status400, status500)
+import Data.Aeson                           (FromJSON(..), eitherDecode, Result(..), fromJSON)
+import Model                                (OutgoingError(..))
+import Data.Default.Class                   (Default(..))
+import Control.Applicative                  ((<|>))
+import Network.Wai.Middleware.RequestLogger (logStdout)
 
 import qualified Network.Wai                   as W
 import qualified Network.Wai.Middleware.Static as W
@@ -43,10 +48,12 @@ import qualified Data.ByteString.Lazy          as BL
 import qualified Web.Scotty.Trans              as ST
 import qualified Data.Text.Encoding            as E
 import qualified Network.Wai.Handler.Warp      as WR
-
--- import qualified Data.CaseInsensitive    as CI
+import qualified Network.Wai.Middleware.Gzip   as GZ
 
 type SlateAction = ST.ActionT Except
+
+type SlateScottyAction = ST.ScottyT Except IO ()
+
 
 data Except = MalformedJsonInput T.Text
             | InvalidInput T.Text
@@ -65,8 +72,17 @@ addStaticDirPolicy = W.addBase "./static"
 createMiddleware :: W.Policy -> W.Middleware
 createMiddleware = W.staticPolicyWithOptions W.defaultOptions
 
-checkApiKey :: ApiKey -> W.Middleware
-checkApiKey apiKey baseApp = \req respF ->
+staticFileMiddleware :: W.Middleware
+staticFileMiddleware = createMiddleware addStaticDirPolicy
+
+zipMiddleware :: W.Middleware
+zipMiddleware = GZ.gzip (GZ.def { GZ.gzipFiles = GZ.GzipCompress })
+
+loggingMiddleware :: W.Middleware
+loggingMiddleware = logStdout
+
+checkApiKeyMiddleware :: ApiKey -> W.Middleware
+checkApiKeyMiddleware apiKey baseApp = \req respF ->
   let maybeMatched = do
         (_, hv)     <- find ((apiKeyHeader ==) . fst) (W.requestHeaders req)
         headerValue <- bsToText hv
