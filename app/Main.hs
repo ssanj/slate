@@ -2,6 +2,8 @@
 
 module Main where
 
+import Defaults
+
 import SlateApi (server)
 import Model    (SlateConfig(..), SlateDatabaseConfig(..))
 import Cmd      (getApiKey)
@@ -10,7 +12,7 @@ main :: IO ()
 main = config >>= server
 
 config :: IO SlateConfig
-config = do
-  apiKey <- getApiKey
-  let dbConfig = SlateDatabaseConfig "db/scrib.db"
-  pure $ SlateConfig apiKey dbConfig
+config =
+  (\apiKey ->
+      SlateConfig apiKey Defaults.database Defaults.middleware
+  ) <$> getApiKey

@@ -15,6 +15,7 @@ module Model
        ,  OutgoingError(..)
        ,  SlateConfig(..)
        ,  SlateDatabaseConfig(..)
+       ,  MiddlewareType(..)
 
          -- FUNCTIONS
 
@@ -72,7 +73,10 @@ data SlateConfig =
   SlateConfig {
     _slateConfigApiKey :: ApiKey
   , _slateConfigDatabaseConfig :: SlateDatabaseConfig
+  , _slateConfigMiddleware :: [MiddlewareType]
   }
+
+data MiddlewareType = GZipping | StaticFileServing | Logging | ApiKeyRequiring
 
 data Except = MalformedJsonInput T.Text
             | InvalidInput T.Text
