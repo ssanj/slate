@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Defaults (middleware, database) where
+module Defaults (middleware, database, errorHandler) where
 
-import Model (MiddlewareType(..), SlateDatabaseConfig(..))
+import Model (MiddlewareType(..), SlateDatabaseConfig(..), SlateErrorHandler(..))
 
 middleware :: [MiddlewareType]
 middleware =
@@ -16,3 +16,5 @@ middleware =
 database :: SlateDatabaseConfig
 database = SlateDatabaseConfig "db/scrib.db"
 
+errorHandler :: Maybe SlateErrorHandler
+errorHandler = Just SlateErrorHandler

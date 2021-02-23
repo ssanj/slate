@@ -36,11 +36,11 @@ server slateConfig = do
   setupScotty slateConfig
 
 setupScotty :: SlateConfig -> IO ()
-setupScotty slateConfig =
+setupScotty (SlateConfig apiKey _ middlewareConfig errorHandler) =
   ST.scottyOptsT (serverOptions 3000) id $ do
-    sequence_ . slateMiddleware . _slateConfigApiKey $ slateConfig
+    sequence_ (slateMiddleware middlewareConfig apiKey)
 
-    ST.defaultHandler handleEx
+    sequence_ (slateErrorHandlers errorHandler)
 
     getIndexFile
 
@@ -53,14 +53,16 @@ setupScotty slateConfig =
     deleteNoteEndpoint
 
 
-slateMiddleware :: ApiKey -> [SlateScottyAction]
-slateMiddleware apiKey =
-  [
-    ST.middleware zipMiddleware
-  , ST.middleware loggingMiddleware
-  , ST.middleware staticFileMiddleware
-  , ST.middleware $ checkApiKeyMiddleware apiKey
-  ]
+slateMiddleware :: [MiddlewareType] -> ApiKey -> [SlateScottyAction]
+slateMiddleware [] _                        = []
+slateMiddleware (GZipping:rest) apiKey             = ST.middleware zipMiddleware                  : slateMiddleware rest apiKey
+slateMiddleware (StaticFileServing:rest) apiKey    = ST.middleware staticFileMiddleware           : slateMiddleware rest apiKey
+slateMiddleware (Logging:rest) apiKey              = ST.middleware loggingMiddleware              : slateMiddleware rest apiKey
+slateMiddleware (ApiKeyRequiring:rest) apiKey      = ST.middleware (checkApiKeyMiddleware apiKey) : slateMiddleware rest apiKey
+
+slateErrorHandlers :: Maybe SlateErrorHandler -> [SlateScottyAction]
+slateErrorHandlers Nothing  = []
+slateErrorHandlers (Just _) = pure $ ST.defaultHandler handleEx
 
 createNote :: SlateScottyAction
 createNote =
