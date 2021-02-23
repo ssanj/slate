@@ -30,15 +30,15 @@ import qualified Data.Text                   as T
 import qualified Data.Text.IO                as T (putStrLn, putStr)
 import qualified Data.Version                as DV
 
-server :: ApiKey  -> IO ()
-server apiKey = do
+server :: SlateConfig  -> IO ()
+server slateConfig = do
   printBanner
-  setupScotty apiKey
+  setupScotty slateConfig
 
-setupScotty :: ApiKey -> IO ()
-setupScotty apiKey =
+setupScotty :: SlateConfig -> IO ()
+setupScotty slateConfig =
   ST.scottyOptsT (serverOptions 3000) id $ do
-    sequence_ $ slateMiddleware apiKey
+    sequence_ . slateMiddleware . _slateConfigApiKey $ slateConfig
 
     ST.defaultHandler handleEx
 
