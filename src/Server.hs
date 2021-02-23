@@ -50,10 +50,10 @@ import qualified Data.Text.Encoding            as E
 import qualified Network.Wai.Handler.Warp      as WR
 import qualified Network.Wai.Middleware.Gzip   as GZ
 
+
 type SlateAction = ST.ActionT Except
 
 type SlateScottyAction = ST.ScottyT Except IO ()
-
 
 data Except = MalformedJsonInput T.Text
             | InvalidInput T.Text

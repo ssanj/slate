@@ -13,6 +13,8 @@ module Model
        ,  ApiKey(..)
        ,  DBError(..)
        ,  OutgoingError(..)
+       ,  SlateConfig(..)
+       ,  SlateDatabaseConfig(..)
 
          -- FUNCTIONS
 
@@ -29,9 +31,8 @@ import Data.Aeson.Text (encodeToLazyText)
 
 import Data.Aeson.Casing (aesonDrop, camelCase)
 
-import qualified Data.Text      as T
-import qualified Data.Text.Lazy as LT
-
+import qualified Data.Text        as T
+import qualified Data.Text.Lazy   as LT
 
 -- DATA TYPES
 
@@ -61,6 +62,25 @@ data OutgoingError =
   } deriving stock (Generic, Show, Eq)
 
 newtype ApiKey = ApiKey { _apiKey :: T.Text } deriving stock (Eq, Show)
+
+data SlateDatabaseConfig =
+  SlateDatabaseConfig {
+    _slateDatabaseConfigDatabaseLocation :: T.Text
+  }
+
+data SlateConfig =
+  SlateConfig {
+    _slateConfigApiKey :: ApiKey
+  , _slateConfigDatabaseConfig :: SlateDatabaseConfig
+  }
+
+data Except = MalformedJsonInput T.Text
+            | InvalidInput T.Text
+            | NoDataProvided T.Text
+            | GenericError T.Text
+    deriving stock (Show, Eq)
+
+
 
 data DBError = ItemNotFound Int
              | InvalidVersion Int
