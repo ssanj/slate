@@ -8,6 +8,7 @@ module SlateApi
           -- Functions
          server
        , getIndexFile
+       , getNotes2
        ) where
 
 import Server
@@ -83,6 +84,13 @@ performSearch dbConfig =
 
 getNotes :: SlateDatabaseConfig -> SlateScottyAction
 getNotes dbConfig = ST.get "/notes" $ withScribDbActionM dbConfig retrieveTopNotes ST.json
+
+getNotes2 :: Connection -> SlateScottyAction
+getNotes2 con =
+  let actionM :: SlateAction IO () = do
+        value <- liftIO $ withTransaction con (retrieveTopNotes con)
+        ST.json value
+  in ST.get "/notes" actionM
 
 getIndexFile :: SlateScottyAction
 getIndexFile = ST.get "/" $ ST.file "./static/index.html"

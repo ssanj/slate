@@ -109,3 +109,4 @@ tests:
     - bytestring
     - hspec-wai
     - wai
+    - wai-extra

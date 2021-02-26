@@ -33,6 +33,24 @@ data DBTest =
   , cleanUp  :: CleanUp -> DBAction ()
   }
 
+data DBTestWithoutSpec =
+  DBTestWithoutSpec {
+    dbTestWithoutSpecInit     :: DBAction ((), InitialisedDB)
+  , dbTestWithoutSpecSeedData :: InitialisedDB -> DBAction ((), SeededDB)
+  , dbTestWithoutSpecCleanUp  :: CleanUp -> DBAction ()
+  }
+
+toDbTest :: DBTestWithoutSpec -> DBAction a -> DBTest
+toDbTest (DBTestWithoutSpec init' seed' cleanup') action =
+  let dbSpec' :: SeededDB -> DBAction ((), CleanUp)
+      dbSpec' _ = \c -> fmap (const ((), AssertionRun)) (action c)
+  in
+    DBTest
+      init'
+      seed'
+      dbSpec'
+      cleanup'
+
 assertDBNote :: DBNote -> (Text -> IO ()) -> IO ()
 assertDBNote dbNote assertion =
   let (_, dbMessage, _) = getDBNote dbNote
@@ -50,6 +68,14 @@ dbTest dbName dbt =
     (open (getDBName dbName))
     close
     (runDatabaseChanges dbt)
+
+
+dbTest' :: DBName -> DBTestWithoutSpec -> DBAction a -> IO ()
+dbTest' dbName dbtws assertSpec =
+  bracket
+    (open (getDBName dbName))
+    close
+    (runDatabaseChanges (toDbTest dbtws assertSpec))
 
 runDatabaseChanges :: DBTest -> Connection -> IO ()
 runDatabaseChanges (DBTest runInit runSeedData assertWith runCleanUp) con =
