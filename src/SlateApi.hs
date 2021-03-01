@@ -45,6 +45,10 @@ setupScotty (SlateConfig apiKey dbConfig middlewareConfig errorHandler) =
 
     getIndexFile
 
+    -- created pool connections
+    -- traverse all db connection requiring functions
+    --  traverse (poolConnection &) [getNotes, performSearch, createNote, deleteNoteEndpoint]
+
     getNotes dbConfig
 
     performSearch dbConfig
@@ -86,11 +90,13 @@ getNotes :: SlateDatabaseConfig -> SlateScottyAction
 getNotes dbConfig = ST.get "/notes" $ withScribDbActionM dbConfig retrieveTopNotes ST.json
 
 getNotes2 :: Connection -> SlateScottyAction
-getNotes2 con =
-  let actionM :: SlateAction IO () = do
-        value <- liftIO $ withTransaction con (retrieveTopNotes con)
-        ST.json value
-  in ST.get "/notes" actionM
+getNotes2 con = ST.get "/notes" (txSlateAction con retrieveTopNotes)
+
+
+txSlateAction :: ToJSON a => Connection -> (Connection -> IO a) -> SlateAction IO ()
+txSlateAction con action = do
+  value <- liftIO $ withTransaction con (action con)
+  ST.json value
 
 getIndexFile :: SlateScottyAction
 getIndexFile = ST.get "/" $ ST.file "./static/index.html"
