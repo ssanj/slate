@@ -64,19 +64,18 @@ testDatabaseName = Tagged ":memory:"
 getDBName :: DBName -> String
 getDBName = untag
 
-dbTest :: DBName -> DBTest a -> IO a
-dbTest dbName dbt =
+dbTestBase :: DBName -> DBTest a -> (DBTest a -> Connection -> IO a) -> IO a
+dbTestBase dbName dbt dbRunner =
   bracket
     (open (getDBName dbName))
     close
-    (runDatabaseChanges dbt)
+    (dbRunner dbt)
+
+dbTest :: DBName -> DBTest a -> IO a
+dbTest dbName dbt = dbTestBase dbName dbt runDatabaseChanges
 
 dbTestTx :: DBName -> DBTest a -> IO a
-dbTestTx dbName dbt =
-  bracket
-    (open (getDBName dbName))
-    close
-    (runDatabaseChangesTx dbt)
+dbTestTx dbName dbt = dbTestBase dbName dbt runDatabaseChangesTx
 
 dbTest_ :: DBName -> DBTest () -> IO ()
 dbTest_ dbn dbt = void $ dbTest dbn dbt
