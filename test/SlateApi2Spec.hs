@@ -7,16 +7,18 @@ module SlateApi2Spec where
 
 import Network.Wai.Test
 
-import Test.Tasty.HUnit       (Assertion, (@?=))
+import Test.Tasty.HUnit       (Assertion, assertFailure, assertBool, (@?=))
 import SlateApi               (getIndexFile, getNotes2)
 import Server                 (Except)
 import Network.Wai            (Application)
 import Data.Foldable          (traverse_)
+import Model                  (OutgoingNote(..))
 
 import qualified Web.Scotty.Trans   as ST
 import qualified Network.HTTP.Types as H
 import qualified Data.ByteString    as B
-
+import qualified Data.Aeson         as A
+import qualified Data.Text          as T
 
 import Scaffold
 
@@ -33,15 +35,39 @@ unit_root = do
 unit_notes :: Assertion
 unit_notes = do
   let dbWrap ::  (SeededDB -> DBAction ((), CleanUp)) -> IO () = dbWithinTxTest insertSeedDataSearchNotes
-  dbWrap appAssertion --(\_ -> fmap (,AssertionRun) . route . getNotes2)
+  dbWrap appAssertion
     where
         appAssertion :: SeededDB -> DBAction ((), CleanUp)
         appAssertion _ con = do
            app      <- route . getNotes2 $ con
            response <- runSession (getRequest "/notes") app
            let status = simpleStatus response
+               body   = simpleBody response
+               resultE :: Either String [OutgoingNote] = A.eitherDecode body
            status @?= H.status200
+           either (assertFailure . ("Could not decode result as 'OutgoingNote':" <>)) assertResults resultE
            pure $ ((), AssertionRun)
+
+assertResults :: [OutgoingNote] -> Assertion
+assertResults notes = do
+ (length notes) @?= 5
+ let noteTextList = (_outgoingNoteText) <$> notes
+     expectedNotes :: [T.Text] =
+           [
+             "# Some Note\nYolo"
+           , "# Another note\nMore and more"
+           , "# Random Title\nThis is a blog article about ..."
+           , "# Blog Article\nThis is an article about ..."
+           , "# Whatever you like\nThis is a BloG article about ..."
+           ]
+ assertBool
+   ("Could not find all expected notes in actual notes.\nExpected notes: " <>
+    (show expectedNotes)                                                   <>
+    "\nActual: "                                                           <>
+    (show noteTextList)
+   )
+   (all (`elem` expectedNotes) noteTextList)
+
 
 getRequest :: B.ByteString -> Session SResponse
 getRequest = request . setPath defaultRequest
@@ -59,7 +85,6 @@ insertSeedDataSearchNotes _ = \con -> do
     , ("# Deleted Title\nThis is a deleted blog article about ...", "2020-06-02T15:36:56.200", True)
     , ("# Whatever you like\nThis is a BloG article about ...", "2020-09-02T15:36:56.200", False)
     ]
-  putStrLn "after seed"
   pure ((), SeededDB)
 
 -- dbAppTest :: (InitialisedDB -> DBAction ((), SeededDB)) -> (SeededDB -> DBAction (a, CleanUp)) -> IO a
