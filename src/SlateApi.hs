@@ -8,7 +8,6 @@ module SlateApi
           -- Functions
          server
        , getIndexFile
-       , getNotes2
        ) where
 
 import Server
@@ -17,7 +16,7 @@ import Model
 import DB.DBNote
 import System.IO
 
-import Control.Monad.IO.Class               (liftIO, MonadIO)
+import Control.Monad.IO.Class               (liftIO)
 import Data.Aeson                           (ToJSON(..))
 import Database.SQLite.Simple               (Connection, withTransaction, withConnection)
 import Network.HTTP.Types.Status            (Status, created201, ok200, status400, noContent204)
@@ -34,10 +33,11 @@ import qualified Data.Version                as DV
 server :: SlateConfig  -> IO ()
 server slateConfig = do
   printBanner
-  setupScotty slateConfig
+  let dbConfig = _slateConfigDatabaseConfig slateConfig
+  withDBConnection dbConfig (setupScotty slateConfig)
 
-setupScotty :: SlateConfig -> IO ()
-setupScotty (SlateConfig apiKey dbConfig middlewareConfig errorHandler) =
+setupScotty :: SlateConfig -> Connection -> IO ()
+setupScotty (SlateConfig apiKey _ middlewareConfig errorHandler) con =
   ST.scottyOptsT (serverOptions 3000) id $ do
     sequence_ (slateMiddleware middlewareConfig apiKey)
 
@@ -49,14 +49,14 @@ setupScotty (SlateConfig apiKey dbConfig middlewareConfig errorHandler) =
     -- traverse all db connection requiring functions
     --  traverse (poolConnection &) [getNotes, performSearch, createNote, deleteNoteEndpoint]
 
-    getNotes dbConfig
+    databaseActions con
 
-    performSearch dbConfig
-
-    createNote dbConfig
-
-    deleteNoteEndpoint dbConfig
-
+databaseActions :: Connection -> SlateScottyAction
+databaseActions con = do
+    getNotesEndpoint      con
+    performSearchEndpoint con
+    createNoteEndpoint    con
+    deleteNoteEndpoint    con
 
 slateMiddleware :: [MiddlewareType] -> ApiKey -> [SlateScottyAction]
 slateMiddleware [] _                        = []
@@ -69,44 +69,68 @@ slateErrorHandlers :: Maybe SlateErrorHandler -> [SlateScottyAction]
 slateErrorHandlers Nothing  = []
 slateErrorHandlers (Just _) = pure $ ST.defaultHandler handleEx
 
-createNote :: SlateDatabaseConfig -> SlateScottyAction
-createNote dbConfig =
+getIndexFile :: SlateScottyAction
+getIndexFile = ST.get "/" $ ST.file "./static/index.html"
+
+-- createNote :: SlateDatabaseConfig -> SlateScottyAction
+-- createNote dbConfig =
+--   ST.post "/note" $ do
+--     (note :: IncomingNote) <- jsonErrorHandle
+--     noteIdE <- withScribDb dbConfig (saveNote note)
+--     case noteIdE of
+--      (Left errorMessage) -> withError errorMessage
+--      (Right noteIdVersion) -> maybe (jsonResponse created201 noteIdVersion) (const $ jsonResponse ok200 noteIdVersion) (_incomingNoteAndVersion note)
+
+-- performSearch :: SlateDatabaseConfig -> SlateScottyAction
+-- performSearch dbConfig =
+--     ST.get "/search" $ do
+--       query <- ST.param "q"
+--       withScribDbActionM dbConfig (searchForNotes query) ST.json
+
+-- getNotes :: SlateDatabaseConfig -> SlateScottyAction
+-- getNotes dbConfig = ST.get "/notes" $ withScribDbActionM dbConfig retrieveTopNotes ST.json
+
+-- deleteNoteEndpoint :: SlateDatabaseConfig -> SlateScottyAction
+-- deleteNoteEndpoint dbConfig =
+--   ST.delete "/note/:noteId" $ do
+--     noteId        <- mkNoteId <$> ST.param "noteId"
+--     withScribDb dbConfig (deleteNote noteId)
+--     ST.status noContent204
+
+getNotesEndpoint :: Connection -> SlateScottyAction
+getNotesEndpoint = ST.get "/notes" . txSlateActionWithJson retrieveTopNotes
+
+performSearchEndpoint :: Connection -> SlateScottyAction
+performSearchEndpoint con =
+    ST.get "/search" $ do
+      query <- ST.param "q"
+      txSlateActionWithJson (searchForNotes query) con
+
+createNoteEndpoint :: Connection -> SlateScottyAction
+createNoteEndpoint con =
   ST.post "/note" $ do
     (note :: IncomingNote) <- jsonErrorHandle
-    noteIdE <- withScribDb dbConfig (saveNote note)
+    noteIdE <- txSlateAction (saveNote note) con
     case noteIdE of
      (Left errorMessage) -> withError errorMessage
      (Right noteIdVersion) -> maybe (jsonResponse created201 noteIdVersion) (const $ jsonResponse ok200 noteIdVersion) (_incomingNoteAndVersion note)
 
-
-performSearch :: SlateDatabaseConfig -> SlateScottyAction
-performSearch dbConfig =
-    ST.get "/search" $ do
-      query <- ST.param "q"
-      withScribDbActionM dbConfig (searchForNotes query) ST.json
-
-
-getNotes :: SlateDatabaseConfig -> SlateScottyAction
-getNotes dbConfig = ST.get "/notes" $ withScribDbActionM dbConfig retrieveTopNotes ST.json
-
-getNotes2 :: Connection -> SlateScottyAction
-getNotes2 con = ST.get "/notes" (txSlateAction con retrieveTopNotes)
+deleteNoteEndpoint :: Connection -> SlateScottyAction
+deleteNoteEndpoint con =
+  ST.delete "/note/:noteId" $ do
+    noteId        <- mkNoteId <$> ST.param "noteId"
+    txSlateAction (deleteNote noteId) con
+    ST.status noContent204
 
 
-txSlateAction :: ToJSON a => Connection -> (Connection -> IO a) -> SlateAction IO ()
-txSlateAction con action = do
+txSlateActionWithJson :: ToJSON a => (Connection -> IO a) -> Connection -> SlateAction IO ()
+txSlateActionWithJson action con = do
   value <- liftIO $ withTransaction con (action con)
   ST.json value
 
-getIndexFile :: SlateScottyAction
-getIndexFile = ST.get "/" $ ST.file "./static/index.html"
+txSlateAction :: (Connection -> IO a) -> Connection -> SlateAction IO a
+txSlateAction action con = liftIO $ withTransaction con (action con)
 
-deleteNoteEndpoint :: SlateDatabaseConfig -> SlateScottyAction
-deleteNoteEndpoint dbConfig =
-  ST.delete "/note/:noteId" $ do
-    noteId        <- mkNoteId <$> ST.param "noteId"
-    withScribDb dbConfig (deleteNote noteId)
-    ST.status noContent204
 
 printBanner :: IO ()
 printBanner = do
@@ -134,16 +158,19 @@ getAsciiBanner =
 withError :: Monad m => DBError -> SlateAction m ()
 withError dbError = ST.json (dbErrorToString dbError) >> ST.status status400
 
-withScribDb :: MonadIO m => SlateDatabaseConfig -> (Connection -> IO a) -> SlateAction m a
-withScribDb dbConfig = liftIO . scribDB dbConfig
+-- withScribDb :: MonadIO m => SlateDatabaseConfig -> (Connection -> IO a) -> SlateAction m a
+-- withScribDb dbConfig = liftIO . scribDB dbConfig
 
-withScribDbActionM :: MonadIO m => SlateDatabaseConfig -> (Connection -> IO a) -> (a -> SlateAction m b) -> SlateAction m b
-withScribDbActionM dbConfig cb conversion = do
-  value  <- liftIO $ scribDB dbConfig cb
-  conversion value
+-- withScribDbActionM :: MonadIO m => SlateDatabaseConfig -> (Connection -> IO a) -> (a -> SlateAction m b) -> SlateAction m b
+-- withScribDbActionM dbConfig cb conversion = do
+--   value  <- liftIO $ scribDB dbConfig cb
+--   conversion value
 
-scribDB :: SlateDatabaseConfig -> (Connection -> IO a) -> IO a
-scribDB (SlateDatabaseConfig dbName) dbOp = withConnection (T.unpack dbName) (\con -> withTransaction con (dbOp con))
+-- scribDB :: SlateDatabaseConfig -> (Connection -> IO a) -> IO a
+-- scribDB (SlateDatabaseConfig dbName) dbOp = withConnection (T.unpack dbName) (\con -> withTransaction con (dbOp con))
+
+withDBConnection :: SlateDatabaseConfig -> (Connection -> IO a) -> IO a
+withDBConnection (SlateDatabaseConfig dbName) action = withConnection (T.unpack dbName) action
 
 jsonResponse :: (ToJSON a, Monad m) => Status -> a -> SlateAction m ()
 jsonResponse st value = ST.json value >> ST.status st
