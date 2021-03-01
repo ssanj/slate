@@ -88,7 +88,7 @@ getNotes dbConfig = ST.get "/notes" $ withScribDbActionM dbConfig retrieveTopNot
 getNotes2 :: Connection -> SlateScottyAction
 getNotes2 con =
   let actionM :: SlateAction IO () = do
-        value <- liftIO $ withTransaction con (retrieveTopNotes con)
+        value <- liftIO $ withTransaction con (putStrLn "before getNotes2" >> retrieveTopNotes con >> putStrLn "after getNotes2")
         ST.json value
   in ST.get "/notes" actionM
 

@@ -1,6 +1,6 @@
-{-# LANGUAGE OverloadedStrings, QuasiQuotes #-}
-{-# LANGUAGE QuasiQuotes                    #-}
-{-# LANGUAGE ScopedTypeVariables            #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE QuasiQuotes         #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module SlateApiSpec where
 
