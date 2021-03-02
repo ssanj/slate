@@ -47,6 +47,8 @@ library:
   - data-default-class
   - warp
   - deepseq
+  - resource-pool
+  - time
 
   ghc-options:
   - -Werror

@@ -8,7 +8,7 @@ module SlateApi2Spec where
 import Network.Wai.Test
 
 import Test.Tasty.HUnit       (Assertion, assertFailure, assertBool, (@?=))
-import SlateApi               (getIndexFile, getNotes2)
+import SlateApi               (getIndexFile, getNotesEndpoint)
 import Server                 (Except)
 import Network.Wai            (Application)
 import Data.Foldable          (traverse_)
@@ -39,7 +39,7 @@ unit_notes = do
     where
         appAssertion :: SeededDB -> DBAction ((), CleanUp)
         appAssertion _ con = do
-           app      <- route . getNotes2 $ con
+           app      <- route . getNotesEndpoint $ con
            response <- runSession (getRequest "/notes") app
            let status = simpleStatus response
                body   = simpleBody response
