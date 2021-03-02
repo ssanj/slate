@@ -44,29 +44,30 @@ unit_notes = do
            let status = simpleStatus response
                body   = simpleBody response
                resultE :: Either String [OutgoingNote] = A.eitherDecode body
+               expectedNotes :: [T.Text] =
+                 [
+                   "# Some Note\nYolo"
+                 , "# Another note\nMore and more"
+                 , "# Random Title\nThis is a blog article about ..."
+                 , "# Blog Article\nThis is an article about ..."
+                 , "# Whatever you like\nThis is a BloG article about ..."
+                 ]
            status @?= H.status200
-           either (assertFailure . ("Could not decode result as 'OutgoingNote':" <>)) assertResults resultE
+           either (assertFailure . ("Could not decode result as 'OutgoingNote':" <>)) (assertResults expectedNotes) resultE
            pure $ ((), AssertionRun)
 
-assertResults :: [OutgoingNote] -> Assertion
-assertResults notes = do
- (length notes) @?= 5
- let noteTextList = (_outgoingNoteText) <$> notes
-     expectedNotes :: [T.Text] =
-           [
-             "# Some Note\nYolo"
-           , "# Another note\nMore and more"
-           , "# Random Title\nThis is a blog article about ..."
-           , "# Blog Article\nThis is an article about ..."
-           , "# Whatever you like\nThis is a BloG article about ..."
-           ]
+assertResults ::  [T.Text] -> [OutgoingNote] -> Assertion
+assertResults expectedNotes actualNotes = do
+ (length actualNotes) @?= (length expectedNotes)
+ let actualNoteTextList = (_outgoingNoteText) <$> actualNotes
+
  assertBool
    ("Could not find all expected notes in actual notes.\nExpected notes: " <>
     (show expectedNotes)                                                   <>
     "\nActual: "                                                           <>
-    (show noteTextList)
+    (show actualNoteTextList)
    )
-   (all (`elem` expectedNotes) noteTextList)
+   (all (`elem` expectedNotes) actualNoteTextList)
 
 
 getRequest :: B.ByteString -> Session SResponse
