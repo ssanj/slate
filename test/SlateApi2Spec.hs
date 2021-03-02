@@ -8,7 +8,7 @@ module SlateApi2Spec where
 import Network.Wai.Test
 
 import Test.Tasty.HUnit       (Assertion, assertFailure, assertBool, (@?=))
-import SlateApi               (getIndexFile, getNotesEndpoint)
+import SlateApi               (getIndexFile, getNotesEndpoint, performSearchEndpoint)
 import Server                 (Except)
 import Network.Wai            (Application)
 import Data.Foldable          (traverse_)
@@ -25,6 +25,8 @@ import Scaffold
 route :: ST.ScottyT Except IO () -> IO Application
 route = ST.scottyAppT id
 
+--- getIndexFile
+
 unit_root :: Assertion
 unit_root = do
   app      <- route getIndexFile
@@ -32,32 +34,34 @@ unit_root = do
   let status = simpleStatus response
   status @?= H.status200
 
-unit_notes :: Assertion
-unit_notes = do
-  let dbWrap ::  (SeededDB -> DBAction ((), CleanUp)) -> IO () = dbWithinTxTest insertSeedDataSearchNotes
-  dbWrap appAssertion
-    where
-        appAssertion :: SeededDB -> DBAction ((), CleanUp)
-        appAssertion _ con = do
-           app      <- route . getNotesEndpoint $ con
-           response <- runSession (getRequest "/notes") app
-           let status = simpleStatus response
-               body   = simpleBody response
-               resultE :: Either String [OutgoingNote] = A.eitherDecode body
-               expectedNotes :: [T.Text] =
-                 [
-                   "# Some Note\nYolo"
-                 , "# Another note\nMore and more"
-                 , "# Random Title\nThis is a blog article about ..."
-                 , "# Blog Article\nThis is an article about ..."
-                 , "# Whatever you like\nThis is a BloG article about ..."
-                 ]
-           status @?= H.status200
-           either (assertFailure . ("Could not decode result as 'OutgoingNote':" <>)) (assertResults expectedNotes) resultE
-           pure $ ((), AssertionRun)
 
-assertResults ::  [T.Text] -> [OutgoingNote] -> Assertion
-assertResults expectedNotes actualNotes = do
+--- getNotesEndpoint
+
+unit_notes :: Assertion
+unit_notes = dbWithinTxTest insertSeedDataSearchNotes assertGetNotes
+
+
+assertGetNotes :: SeededDB -> DBAction ((), CleanUp)
+assertGetNotes _ con = do
+   app      <- route . getNotesEndpoint $ con
+   response <- runSession (getRequest "/notes") app
+   let status = simpleStatus response
+       body   = simpleBody response
+       resultE :: Either String [OutgoingNote] = A.eitherDecode body
+       expectedNotes :: [T.Text] =
+         [
+           "# Some Note\nYolo"
+         , "# Another note\nMore and more"
+         , "# Random Title\nThis is a blog article about ..."
+         , "# Blog Article\nThis is an article about ..."
+         , "# Whatever you like\nThis is a BloG article about ..."
+         ]
+   status @?= H.status200
+   either (assertFailure . ("Could not decode result as 'OutgoingNote':" <>)) (assertGetNotesResults expectedNotes) resultE
+   pure $ ((), AssertionRun)
+
+assertGetNotesResults ::  [T.Text] -> [OutgoingNote] -> Assertion
+assertGetNotesResults expectedNotes actualNotes = do
  (length actualNotes) @?= (length expectedNotes)
  let actualNoteTextList = (_outgoingNoteText) <$> actualNotes
 
@@ -68,10 +72,6 @@ assertResults expectedNotes actualNotes = do
     (show actualNoteTextList)
    )
    (all (`elem` expectedNotes) actualNoteTextList)
-
-
-getRequest :: B.ByteString -> Session SResponse
-getRequest = request . setPath defaultRequest
 
 
 insertSeedDataSearchNotes :: InitialisedDB -> DBAction ((), SeededDB)
@@ -88,8 +88,31 @@ insertSeedDataSearchNotes _ = \con -> do
     ]
   pure ((), SeededDB)
 
--- dbAppTest :: (InitialisedDB -> DBAction ((), SeededDB)) -> (SeededDB -> DBAction (a, CleanUp)) -> IO a
 
+--- performSearchEndpoint
+
+unit_perform_search :: Assertion
+unit_perform_search = dbWithinTxTest insertSeedDataSearchNotes assertSearchNotes
+
+
+assertSearchNotes :: SeededDB -> DBAction ((), CleanUp)
+assertSearchNotes _ con = do
+   app      <- route . performSearchEndpoint $ con
+   response <- runSession (getRequest "/search?q=random") app
+   let status = simpleStatus response
+       body   = simpleBody response
+       resultE :: Either String [OutgoingNote] = A.eitherDecode body
+       expectedNotes :: [T.Text] =
+         [
+           "# Random Title\nThis is a blog article about ..."
+         ]
+   status @?= H.status200
+   either (assertFailure . ("Could not decode result as 'OutgoingNote':" <>)) (assertGetNotesResults expectedNotes) resultE
+   pure $ ((), AssertionRun)
+
+
+getRequest :: B.ByteString -> Session SResponse
+getRequest = request . setPath defaultRequest
 
 -- -- defaultRequest :: Request
 -- -- defaultRequest = Request
