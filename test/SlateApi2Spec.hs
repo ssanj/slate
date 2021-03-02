@@ -8,17 +8,20 @@ module SlateApi2Spec where
 import Network.Wai.Test
 
 import Test.Tasty.HUnit       (Assertion, assertFailure, assertBool, (@?=))
-import SlateApi               (getIndexFile, getNotesEndpoint, performSearchEndpoint)
+import SlateApi               (getIndexFile, getNotesEndpoint, performSearchEndpoint, createNoteEndpoint)
 import Server                 (Except)
 import Network.Wai            (Application)
 import Data.Foldable          (traverse_)
 import Model                  (OutgoingNote(..))
+import DB.DBNote              (NoteIdVersion, mkNoteIdVersion, mkNoteId, mkNoteVersion)
 
-import qualified Web.Scotty.Trans   as ST
-import qualified Network.HTTP.Types as H
-import qualified Data.ByteString    as B
-import qualified Data.Aeson         as A
-import qualified Data.Text          as T
+import qualified Web.Scotty.Trans     as ST
+import qualified Network.Wai          as W
+import qualified Network.HTTP.Types   as H
+import qualified Data.ByteString      as B
+import qualified Data.ByteString.Lazy as LB
+import qualified Data.Aeson           as A
+import qualified Data.Text            as T
 
 import Scaffold
 
@@ -59,6 +62,7 @@ assertGetNotes _ con = do
    status @?= H.status200
    either (assertFailure . ("Could not decode result as 'OutgoingNote':" <>)) (assertGetNotesResults expectedNotes) resultE
    pure $ ((), AssertionRun)
+
 
 assertGetNotesResults ::  [T.Text] -> [OutgoingNote] -> Assertion
 assertGetNotesResults expectedNotes actualNotes = do
@@ -111,8 +115,44 @@ assertSearchNotes _ con = do
    pure $ ((), AssertionRun)
 
 
+unit_create_note :: Assertion
+unit_create_note = dbWithinTxTest noTestData assertCreateNote
+
+noTestData :: InitialisedDB -> DBAction ((), SeededDB)
+noTestData _ = \_ ->  pure ((), SeededDB)
+
+
+assertCreateNote :: SeededDB -> DBAction ((), CleanUp)
+assertCreateNote _ con = dbAssertion $ do
+   app      <- route . createNoteEndpoint $ con
+   let incoming = A.encode $ A.object [ "noteText" A..= ("Sample text" :: T.Text)]
+   response <- runSession (postJSON "/note" incoming) app
+   let status = simpleStatus response
+       body   = simpleBody response
+       resultE :: Either String NoteIdVersion = A.eitherDecode body
+       expectedNoteIdVersion = mkNoteIdVersion (mkNoteId 1)  (mkNoteVersion 1)
+   status @?= H.status201
+   either (assertFailure . ("Could not decode result as 'NoteIdVersion':" <>)) (assertCreateNoteResult expectedNoteIdVersion) resultE
+
+
+assertCreateNoteResult ::  NoteIdVersion -> NoteIdVersion -> Assertion
+assertCreateNoteResult expected actual = actual @?= expected
+
+
+dbAssertion :: IO a -> IO (a, CleanUp)
+dbAssertion assertion = ((, AssertionRun)) <$> assertion
+
+
 getRequest :: B.ByteString -> Session SResponse
 getRequest = request . setPath defaultRequest
+
+postJSON :: B.ByteString -> LB.ByteString -> Session SResponse
+postJSON path json = srequest $ SRequest req json
+  where
+    req = setPath defaultRequest
+            { W.requestMethod = H.methodPost
+            , W.requestHeaders = [(H.hContentType, "application/json")]} path
+
 
 -- -- defaultRequest :: Request
 -- -- defaultRequest = Request

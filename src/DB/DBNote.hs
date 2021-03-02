@@ -237,6 +237,11 @@ instance ToJSON NoteIdVersion where
       , "noteVersion" .= noteVersion
       ]
 
+instance FromJSON NoteIdVersion where
+    parseJSON = withObject "NoteIdVersion" $ \v -> NoteIdVersion
+        <$> v .: "noteId"
+        <*> v .: "noteVersion"
+
 -- Only allow going to the db without an id, not the other way around
 instance ToRow NewDBNote where
   toRow (NewDBNote (NoteText message_)) = [SQLText message_]

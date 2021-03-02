@@ -10,6 +10,7 @@ module SlateApi
        , getIndexFile
        , getNotesEndpoint
        , performSearchEndpoint
+       , createNoteEndpoint
        ) where
 
 import Server
