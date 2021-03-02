@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections     #-}
 
 module Scaffold where
 
@@ -35,34 +36,19 @@ data DBTest a =
   }
 
 
--- data DBTestWithoutSpec =
---   DBTestWithoutSpec {
---     dbTestWithoutSpecInit     :: DBAction ((), InitialisedDB)
---   , dbTestWithoutSpecSeedData :: InitialisedDB -> DBAction ((), SeededDB)
---   , dbTestWithoutSpecCleanUp  :: CleanUp -> DBAction ()
---   }
-
--- toDbTest :: DBTestWithoutSpec -> DBAction a -> DBTest
--- toDbTest (DBTestWithoutSpec init' seed' cleanup') action =
---   let dbSpec' :: SeededDB -> DBAction ((), CleanUp)
---       dbSpec' _ = \c -> fmap (const ((), AssertionRun)) (action c)
---   in
---     DBTest
---       init'
---       seed'
---       dbSpec'
---       cleanup'
-
 assertDBNote :: DBNote -> (Text -> IO ()) -> IO ()
 assertDBNote dbNote assertion =
   let (_, dbMessage, _) = getDBNote dbNote
   in assertion $ getNoteText dbMessage
 
+
 testDatabaseName :: DBName
 testDatabaseName = Tagged ":memory:"
 
+
 getDBName :: DBName -> String
 getDBName = untag
+
 
 dbTestBase :: DBName -> DBTest a -> (DBTest a -> Connection -> IO a) -> IO a
 dbTestBase dbName dbt dbRunner =
@@ -71,21 +57,18 @@ dbTestBase dbName dbt dbRunner =
     close
     (dbRunner dbt)
 
+
 dbTest :: DBName -> DBTest a -> IO a
 dbTest dbName dbt = dbTestBase dbName dbt runDatabaseChanges
+
 
 dbTestTx :: DBName -> DBTest a -> IO a
 dbTestTx dbName dbt = dbTestBase dbName dbt runDatabaseChangesTx
 
+
 dbTest_ :: DBName -> DBTest () -> IO ()
 dbTest_ dbn dbt = void $ dbTest dbn dbt
 
--- dbTest' :: DBName -> DBTestWithoutSpec -> DBAction a -> IO ()
--- dbTest' dbName dbtws assertSpec =
---   bracket
---     (open (getDBName dbName))
---     close
---     (runDatabaseChanges (toDbTest dbtws assertSpec))
 
 runDatabaseChanges :: DBTest a -> Connection -> IO a
 runDatabaseChanges (DBTest runInit runSeedData assertWith runCleanUp) con =
@@ -96,6 +79,7 @@ runDatabaseChanges (DBTest runInit runSeedData assertWith runCleanUp) con =
     (result, token3) <- assertWith token2 con
     runCleanUp token3 con
     pure result
+
 
 -- because sqlite does not support nested transaction, if your code under test needs a transaction it will
 -- fail with an error. This version of `runDatabaseChanges` runs each of (cleanUp + init), `seedData` and
@@ -124,6 +108,7 @@ createSchema con =
       \ );"
      >> (pure $ ((), InitialisedDB))
 
+
 insertMessage :: (Text, Text, Bool) -> DBAction ()
 insertMessage (message, date, deleted) = \con ->
   let dateTimeE = parseUTCTime date
@@ -131,6 +116,12 @@ insertMessage (message, date, deleted) = \con ->
     case dateTimeE of
       Left x         -> ioError . userError $ x
       Right dateTime -> execute con "INSERT INTO SCRIB(MESSAGE, CREATED_AT, UPDATED_AT, DELETED) VALUES (?,?,?,?)" (message, dateTime, dateTime, deleted)
+
+
+insertSpecificMessage :: Int -> Text ->DBAction ()
+insertSpecificMessage id_ message = \con ->
+  execute con "INSERT INTO SCRIB(ID, MESSAGE) VALUES (?,?)" (id_, message)
+
 
 insertMessageNumbered :: Int -> DBAction ()
 insertMessageNumbered item = \con ->
@@ -141,17 +132,25 @@ insertMessageNumbered item = \con ->
 deleteSchema :: CleanUp -> DBAction ()
 deleteSchema _ con = execute_ con "DROP TABLE IF EXISTS SCRIB"
 
-runAssertion :: IO a -> IO (a, CleanUp)
-runAssertion action = (\a -> (a, AssertionRun)) <$> action
 
 runAssertionFailure :: String -> IO ((), CleanUp)
 runAssertionFailure = assertFailure
 
+
 runAssertionSuccess :: IO ((), CleanUp)
 runAssertionSuccess = pure ((), AssertionRun)
+
 
 dbNoteTest :: (InitialisedDB -> DBAction ((), SeededDB)) -> (SeededDB -> DBAction ((), CleanUp)) -> Assertion
 dbNoteTest seedF assertF = dbTest_ testDatabaseName $ DBTest createSchema seedF assertF deleteSchema
 
+
 dbWithinTxTest :: (InitialisedDB -> DBAction ((), SeededDB)) -> (SeededDB -> DBAction (a, CleanUp)) -> IO a
 dbWithinTxTest seedF action = dbTestTx testDatabaseName $ DBTest createSchema seedF action deleteSchema
+
+
+runAssertion :: IO a -> IO (a, CleanUp)
+runAssertion assertion = ((, AssertionRun)) <$> assertion
+
+noTestData :: InitialisedDB -> DBAction ((), SeededDB)
+noTestData _ = \_ ->  pure ((), SeededDB)

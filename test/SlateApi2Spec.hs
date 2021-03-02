@@ -118,12 +118,15 @@ assertSearchNotes _ con = do
 unit_create_note :: Assertion
 unit_create_note = dbWithinTxTest noTestData assertCreateNote
 
-noTestData :: InitialisedDB -> DBAction ((), SeededDB)
-noTestData _ = \_ ->  pure ((), SeededDB)
 
+unit_update_note :: Assertion
+unit_update_note = dbWithinTxTest singleNote assertUpdateNote
+
+
+-- createNoteEndpoint
 
 assertCreateNote :: SeededDB -> DBAction ((), CleanUp)
-assertCreateNote _ con = dbAssertion $ do
+assertCreateNote _ con = runAssertion $ do
    app      <- route . createNoteEndpoint $ con
    let incoming = A.encode $ A.object [ "noteText" A..= ("Sample text" :: T.Text)]
    response <- runSession (postJSON "/note" incoming) app
@@ -135,13 +138,32 @@ assertCreateNote _ con = dbAssertion $ do
    either (assertFailure . ("Could not decode result as 'NoteIdVersion':" <>)) (assertCreateNoteResult expectedNoteIdVersion) resultE
 
 
+
+singleNote :: InitialisedDB -> DBAction ((), SeededDB)
+singleNote _ = \con -> do
+  insertSpecificMessage 1234 "Some message" con
+  pure ((), SeededDB)
+
+assertUpdateNote :: SeededDB -> DBAction ((), CleanUp)
+assertUpdateNote _ con = runAssertion $ do
+   app      <- route . createNoteEndpoint $ con
+   let incoming = A.encode $
+                    A.object [
+                      "noteText"    A..= ("Some other message" :: T.Text)
+                    , "noteId"      A..= (1234 :: Int)
+                    , "noteVersion" A..= (1 :: Int)
+                    ]
+   response <- runSession (postJSON "/note" incoming) app
+   let status = simpleStatus response
+       -- body   = simpleBody response
+       -- resultE :: Either String NoteIdVersion = A.eitherDecode body
+       -- expectedNoteIdVersion = mkNoteIdVersion (mkNoteId 1)  (mkNoteVersion 1)
+   status @?= H.status200
+   -- either (assertFailure . ("Could not decode result as 'NoteIdVersion':" <>)) (assertCreateNoteResult expectedNoteIdVersion) resultE
+
+
 assertCreateNoteResult ::  NoteIdVersion -> NoteIdVersion -> Assertion
 assertCreateNoteResult expected actual = actual @?= expected
-
-
-dbAssertion :: IO a -> IO (a, CleanUp)
-dbAssertion assertion = ((, AssertionRun)) <$> assertion
-
 
 getRequest :: B.ByteString -> Session SResponse
 getRequest = request . setPath defaultRequest
@@ -152,25 +174,3 @@ postJSON path json = srequest $ SRequest req json
     req = setPath defaultRequest
             { W.requestMethod = H.methodPost
             , W.requestHeaders = [(H.hContentType, "application/json")]} path
-
-
--- -- defaultRequest :: Request
--- -- defaultRequest = Request
--- --     { requestMethod = H.methodGet
--- --     , httpVersion = H.http10
--- --     , rawPathInfo = B.empty
--- --     , rawQueryString = B.empty
--- --     , requestHeaders = []
--- --     , isSecure = False
--- --     , remoteHost = SockAddrInet 0 0
--- --     , pathInfo = []
--- --     , queryString = []
--- --     , requestBody = return B.empty
--- --     , vault = mempty
--- --     , requestBodyLength = KnownLength 0
--- --     , requestHeaderHost = Nothing
--- --     , requestHeaderRange = Nothing
--- --     , requestHeaderReferer = Nothing
--- --     , requestHeaderUserAgent = Nothing
--- --     }
-
