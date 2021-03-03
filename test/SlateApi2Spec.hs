@@ -7,7 +7,7 @@ module SlateApi2Spec where
 
 import Network.Wai.Test
 
-import Test.Tasty.HUnit       (Assertion, assertFailure, assertBool, (@?=))
+import Test.Tasty.HUnit       (Assertion, assertFailure, assertBool, (@?=), (@=?))
 import SlateApi               (getIndexFile, getNotesEndpoint, performSearchEndpoint, createNoteEndpoint)
 import Server                 (Except)
 import Network.Wai            (Application)
@@ -147,30 +147,47 @@ singleNote _ = \con -> do
 assertUpdateNote :: SeededDB -> DBAction ((), CleanUp)
 assertUpdateNote _ con = runAssertion $ do
    app      <- route . createNoteEndpoint $ con
-   let incoming = A.encode $
+   let noteId         = 1234 :: Int
+       noteMessage    = "Some other message" :: T.Text
+       noteVersion    = 1 :: Int
+       noteNewVersion = 2 :: Int
+       incoming = A.encode $
                     A.object [
-                      "noteText"    A..= ("Some other message" :: T.Text)
-                    , "noteId"      A..= (1234 :: Int)
-                    , "noteVersion" A..= (1 :: Int)
+                      "noteText"    A..= noteMessage
+                    , "noteId"      A..= noteId
+                    , "noteVersion" A..= noteVersion
                     ]
    response <- runSession (postJSON "/note" incoming) app
-   let status = simpleStatus response
-       body   = simpleBody response
-       resultE :: Either String NoteIdVersion = A.eitherDecode body
-       expectedNote = mkNoteIdVersion (mkNoteId 1234)  (mkNoteVersion 2)
-   status @?= H.status200
-   either (assertFailure . ("Could not decode result as 'NoteIdVersion':" <>)) (assertCreateNoteResult expectedNote) resultE
-   assertNoteInDB 1234 con
 
-assertNoteInDB :: Int -> DBAction ()
-assertNoteInDB noteId con = do
+   let expectedNote = mkNoteIdVersion (mkNoteId noteId)  (mkNoteVersion noteNewVersion)
+   assertResponseStatus response H.status200
+   assertResponseBody response expectedNote
+   assertNoteInDB noteId noteMessage noteNewVersion con
+
+assertResponseBody :: forall a . (A.FromJSON a, Eq a, Show a) => SResponse -> a -> Assertion
+assertResponseBody response expected =
+  let body                                   = simpleBody response
+      resultE :: Either String a = A.eitherDecode body
+  in  either (assertFailure . ("Could not decode result: " <>)) (assertEq' expected) resultE
+
+assertResponseStatus :: SResponse -> H.Status -> Assertion
+assertResponseStatus response = assertEq (simpleStatus response)
+
+assertEq :: (Eq a, Show a) => a -> a -> Assertion
+assertEq = (@?=)
+
+assertEq' :: (Eq a, Show a) => a -> a -> Assertion
+assertEq' = (@=?)
+
+assertNoteInDB :: Int -> T.Text -> Int -> DBAction ()
+assertNoteInDB noteId noteMessage noteVersion con = do
    dbNotes <- findDBNote noteId con
    case dbNotes of
     Nothing                           -> assertFailure "Could not find note with id: 1234"
     Just (dbId, dbMessage, dbVersion) -> do
-          (getInt dbId)           @?= 1234
-          (getNoteText dbMessage) @?= "Some other message"
-          (getInt dbVersion)      @?= 2
+          (getInt dbId)           @?= noteId
+          (getNoteText dbMessage) @?= noteMessage
+          (getInt dbVersion)      @?= noteVersion
 
 
 assertCreateNoteResult ::  NoteIdVersion -> NoteIdVersion -> Assertion
