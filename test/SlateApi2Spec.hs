@@ -13,7 +13,7 @@ import Server                 (Except)
 import Network.Wai            (Application)
 import Data.Foldable          (traverse_)
 import Model                  (OutgoingNote(..))
-import DB.DBNote              (NoteIdVersion, mkNoteIdVersion, mkNoteId, mkNoteVersion, getNoteText, getInt)
+import DB.DBNote              (mkNoteIdVersion, mkNoteId, mkNoteVersion, getNoteText, getInt)
 import Data.Function          ((&))
 
 import qualified Web.Scotty.Trans     as ST
@@ -118,12 +118,14 @@ assertCreateNote _ con = runAssertion $ do
    app      <- route . createNoteEndpoint $ con
    let incoming = A.encode $ A.object [ "noteText" A..= ("Sample text" :: T.Text)]
    response <- runSession (postJSON "/note" incoming) app
-   let status = simpleStatus response
-       body   = simpleBody response
-       resultE :: Either String NoteIdVersion = A.eitherDecode body
-       expectedNoteIdVersion = mkNoteIdVersion (mkNoteId 1)  (mkNoteVersion 1)
-   status @?= H.status201
-   either (assertFailure . ("Could not decode result as 'NoteIdVersion':" <>)) (assertEq expectedNoteIdVersion) resultE
+   let expectedNoteIdVersion = mkNoteIdVersion (mkNoteId 1)  (mkNoteVersion 1)
+
+   traverse_
+    (response &)
+    [
+      assertResponseStatus H.status201
+    , assertResponseBody expectedNoteIdVersion
+    ]
 
 
 singleNote :: InitialisedDB -> DBAction ((), SeededDB)
@@ -222,6 +224,7 @@ postJSON path json = srequest $ SRequest req json
     req = setPath defaultRequest
             { W.requestMethod = H.methodPost
             , W.requestHeaders = [(H.hContentType, "application/json")]} path
+
 
 route :: ST.ScottyT Except IO () -> IO Application
 route = ST.scottyAppT id
