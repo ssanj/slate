@@ -13,7 +13,7 @@ import Server                 (Except)
 import Network.Wai            (Application)
 import Data.Foldable          (traverse_)
 import Model                  (OutgoingNote(..))
-import DB.DBNote              (NoteIdVersion, mkNoteIdVersion, mkNoteId, mkNoteVersion)
+import DB.DBNote              (NoteIdVersion, mkNoteIdVersion, mkNoteId, mkNoteVersion, getNoteText, getInt)
 
 import qualified Web.Scotty.Trans     as ST
 import qualified Network.Wai          as W
@@ -155,11 +155,22 @@ assertUpdateNote _ con = runAssertion $ do
                     ]
    response <- runSession (postJSON "/note" incoming) app
    let status = simpleStatus response
-       -- body   = simpleBody response
-       -- resultE :: Either String NoteIdVersion = A.eitherDecode body
-       -- expectedNoteIdVersion = mkNoteIdVersion (mkNoteId 1)  (mkNoteVersion 1)
+       body   = simpleBody response
+       resultE :: Either String NoteIdVersion = A.eitherDecode body
+       expectedNote = mkNoteIdVersion (mkNoteId 1234)  (mkNoteVersion 2)
    status @?= H.status200
-   -- either (assertFailure . ("Could not decode result as 'NoteIdVersion':" <>)) (assertCreateNoteResult expectedNoteIdVersion) resultE
+   either (assertFailure . ("Could not decode result as 'NoteIdVersion':" <>)) (assertCreateNoteResult expectedNote) resultE
+   assertNoteInDB 1234 con
+
+assertNoteInDB :: Int -> DBAction ()
+assertNoteInDB noteId con = do
+   dbNotes <- findDBNote noteId con
+   case dbNotes of
+    Nothing                           -> assertFailure "Could not find note with id: 1234"
+    Just (dbId, dbMessage, dbVersion) -> do
+          (getInt dbId)           @?= 1234
+          (getNoteText dbMessage) @?= "Some other message"
+          (getInt dbVersion)      @?= 2
 
 
 assertCreateNoteResult ::  NoteIdVersion -> NoteIdVersion -> Assertion

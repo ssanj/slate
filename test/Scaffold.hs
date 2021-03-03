@@ -6,7 +6,7 @@ module Scaffold where
 import Database.SQLite.Simple
 import Database.SQLite.Simple.Time (parseUTCTime)
 import Data.Tagged                 (Tagged(..), untag)
-import DB.DBNote                   (DBNote, getDBNote, getNoteText)
+import DB.DBNote                   (DBNote, getDBNote, getNoteText, NoteId, NoteText, NoteVersion)
 import Data.Text                   (Text, pack)
 import Control.Exception           (bracket)
 import Control.Monad               (void)
@@ -128,6 +128,12 @@ insertMessageNumbered item = \con ->
   let message = "# Test message " <> (pack . show $ item) <> "\n This is only a test" :: Text
   in insertMessage (message, "2010-05-28T15:36:56.200", False) con
 
+findDBNote :: Int -> DBAction (Maybe (NoteId, NoteText, NoteVersion))
+findDBNote dbNoteId = \con -> do
+   dbNotes <- query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE ID = ?" (Only dbNoteId):: IO [DBNote]
+   case dbNotes of
+    []         -> pure Nothing
+    (dbNote:_) -> pure . Just . getDBNote $ dbNote
 
 deleteSchema :: CleanUp -> DBAction ()
 deleteSchema _ con = execute_ con "DROP TABLE IF EXISTS SCRIB"

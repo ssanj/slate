@@ -49,7 +49,7 @@ data OutgoingNote =
     _outgoingNoteText :: T.Text
   , _outgoingNoteId :: Int
   , _outgoingNoteVersion :: Int
-  } deriving stock (Generic, Show)
+  } deriving stock (Generic, Eq, Show)
 
 data IncomingNote =
   IncomingNote {
