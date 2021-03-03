@@ -26,8 +26,6 @@ import qualified Data.Text            as T
 
 import Scaffold
 
-route :: ST.ScottyT Except IO () -> IO Application
-route = ST.scottyAppT id
 
 --- getIndexFile
 
@@ -35,8 +33,8 @@ unit_root :: Assertion
 unit_root = do
   app      <- route getIndexFile
   response <- runSession (getRequest "/") app
-  let status = simpleStatus response
-  status @?= H.status200
+
+  assertResponseStatus H.status200 response
 
 
 --- getNotesEndpoint
@@ -46,13 +44,10 @@ unit_notes = dbWithinTxTest insertSeedDataSearchNotes assertGetNotes
 
 
 assertGetNotes :: SeededDB -> DBAction ((), CleanUp)
-assertGetNotes _ con = do
+assertGetNotes _ con = runAssertion $ do
    app      <- route . getNotesEndpoint $ con
    response <- runSession (getRequest "/notes") app
-   let status = simpleStatus response
-       body   = simpleBody response
-       resultE :: Either String [OutgoingNote] = A.eitherDecode body
-       expectedNotes :: [T.Text] =
+   let expectedNotes :: [T.Text] =
          [
            "# Some Note\nYolo"
          , "# Another note\nMore and more"
@@ -60,9 +55,13 @@ assertGetNotes _ con = do
          , "# Blog Article\nThis is an article about ..."
          , "# Whatever you like\nThis is a BloG article about ..."
          ]
-   status @?= H.status200
-   either (assertFailure . ("Could not decode result as 'OutgoingNote':" <>)) (assertGetNotesResults expectedNotes) resultE
-   pure $ ((), AssertionRun)
+
+   traverse_
+    (response &)
+    [
+      assertResponseStatus H.status200
+    , assertResponseBodyCollection expectedNotes _outgoingNoteText
+    ]
 
 
 assertGetNotesResults ::  [T.Text] -> [OutgoingNote] -> Assertion
@@ -177,7 +176,7 @@ assertUpdateNote _ con = runAssertion $ do
 
 assertResponseBody :: forall a . (A.FromJSON a, Eq a, Show a) => a -> SResponse -> Assertion
 assertResponseBody expected response =
-  let body                                   = simpleBody response
+  let body                       = simpleBody response
       resultE :: Either String a = A.eitherDecode body
   in  either (assertFailure . ("Could not decode result: " <>)) (assertEq' expected) resultE
 
@@ -205,6 +204,26 @@ assertNoteInDB noteId noteMessage noteVersion con = do
           (getInt dbVersion)      @?= noteVersion
 
 
+assertResponseBodyCollection :: forall a b . (A.FromJSON a, Eq b, Show b) => [b] -> (a -> b) -> SResponse -> Assertion
+assertResponseBodyCollection expected convertResponse response =
+  let body                       = simpleBody response
+      resultE :: Either String [a] = A.eitherDecode body
+  in  either (assertFailure . ("Could not decode result: " <>)) (assertCollectionResults expected . fmap convertResponse) resultE
+
+
+assertCollectionResults :: (Eq a, Show a) => [a] -> [a] -> Assertion
+assertCollectionResults expectedItems actualItems = do
+ (length actualItems) @?= (length expectedItems)
+
+ assertBool
+   ("Could not find all expected items in actual items.\nExpected: " <>
+    (show expectedItems)                                             <>
+    "\nActual: "                                                     <>
+    (show actualItems)
+   )
+   (all (`elem` expectedItems) actualItems)
+
+
 getRequest :: B.ByteString -> Session SResponse
 getRequest = request . setPath defaultRequest
 
@@ -215,3 +234,6 @@ postJSON path json = srequest $ SRequest req json
     req = setPath defaultRequest
             { W.requestMethod = H.methodPost
             , W.requestHeaders = [(H.hContentType, "application/json")]} path
+
+route :: ST.ScottyT Except IO () -> IO Application
+route = ST.scottyAppT id
