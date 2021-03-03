@@ -64,20 +64,6 @@ assertGetNotes _ con = runAssertion $ do
     ]
 
 
-assertGetNotesResults ::  [T.Text] -> [OutgoingNote] -> Assertion
-assertGetNotesResults expectedNotes actualNotes = do
- (length actualNotes) @?= (length expectedNotes)
- let actualNoteTextList = (_outgoingNoteText) <$> actualNotes
-
- assertBool
-   ("Could not find all expected notes in actual notes.\nExpected notes: " <>
-    (show expectedNotes)                                                   <>
-    "\nActual: "                                                           <>
-    (show actualNoteTextList)
-   )
-   (all (`elem` expectedNotes) actualNoteTextList)
-
-
 insertSeedDataSearchNotes :: InitialisedDB -> DBAction ((), SeededDB)
 insertSeedDataSearchNotes _ = \con -> do
   traverse_
@@ -100,19 +86,21 @@ unit_perform_search = dbWithinTxTest insertSeedDataSearchNotes assertSearchNotes
 
 
 assertSearchNotes :: SeededDB -> DBAction ((), CleanUp)
-assertSearchNotes _ con = do
+assertSearchNotes _ con = runAssertion $ do
    app      <- route . performSearchEndpoint $ con
    response <- runSession (getRequest "/search?q=random") app
-   let status = simpleStatus response
-       body   = simpleBody response
-       resultE :: Either String [OutgoingNote] = A.eitherDecode body
-       expectedNotes :: [T.Text] =
+
+   let expectedNotes :: [T.Text] =
          [
            "# Random Title\nThis is a blog article about ..."
          ]
-   status @?= H.status200
-   either (assertFailure . ("Could not decode result as 'OutgoingNote':" <>)) (assertGetNotesResults expectedNotes) resultE
-   pure $ ((), AssertionRun)
+
+   traverse_
+    (response & )
+    [
+      assertResponseStatus H.status200
+    , assertResponseBodyCollection expectedNotes _outgoingNoteText
+    ]
 
 
 unit_create_note :: Assertion
