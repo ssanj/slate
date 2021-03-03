@@ -136,14 +136,14 @@ assertCreateNote _ con = runAssertion $ do
        resultE :: Either String NoteIdVersion = A.eitherDecode body
        expectedNoteIdVersion = mkNoteIdVersion (mkNoteId 1)  (mkNoteVersion 1)
    status @?= H.status201
-   either (assertFailure . ("Could not decode result as 'NoteIdVersion':" <>)) (assertCreateNoteResult expectedNoteIdVersion) resultE
-
+   either (assertFailure . ("Could not decode result as 'NoteIdVersion':" <>)) (assertEq expectedNoteIdVersion) resultE
 
 
 singleNote :: InitialisedDB -> DBAction ((), SeededDB)
 singleNote _ = \con -> do
   insertSpecificMessage 1234 "Some message" con
   pure ((), SeededDB)
+
 
 assertUpdateNote :: SeededDB -> DBAction ((), CleanUp)
 assertUpdateNote _ con = runAssertion $ do
@@ -152,12 +152,12 @@ assertUpdateNote _ con = runAssertion $ do
        noteMessage    = "Some other message" :: T.Text
        noteVersion    = 1 :: Int
        noteNewVersion = 2 :: Int
-       incoming = A.encode $
-                    A.object [
-                      "noteText"    A..= noteMessage
-                    , "noteId"      A..= noteId
-                    , "noteVersion" A..= noteVersion
-                    ]
+       incoming       = A.encode $
+                          A.object [
+                            "noteText"    A..= noteMessage
+                          , "noteId"      A..= noteId
+                          , "noteVersion" A..= noteVersion
+                          ]
    response <- runSession (postJSON "/note" incoming) app
 
    let expectedNote = mkNoteIdVersion (mkNoteId noteId)  (mkNoteVersion noteNewVersion)
@@ -171,37 +171,43 @@ assertUpdateNote _ con = runAssertion $ do
 
    assertNoteInDB noteId noteMessage noteNewVersion con
 
+
+-- Helper functions
+
+
 assertResponseBody :: forall a . (A.FromJSON a, Eq a, Show a) => a -> SResponse -> Assertion
 assertResponseBody expected response =
   let body                                   = simpleBody response
       resultE :: Either String a = A.eitherDecode body
   in  either (assertFailure . ("Could not decode result: " <>)) (assertEq' expected) resultE
 
+
 assertResponseStatus :: H.Status -> SResponse -> Assertion
 assertResponseStatus status response = assertEq (simpleStatus response) status
+
 
 assertEq :: (Eq a, Show a) => a -> a -> Assertion
 assertEq = (@?=)
 
+
 assertEq' :: (Eq a, Show a) => a -> a -> Assertion
 assertEq' = (@=?)
+
 
 assertNoteInDB :: Int -> T.Text -> Int -> DBAction ()
 assertNoteInDB noteId noteMessage noteVersion con = do
    dbNotes <- findDBNote noteId con
    case dbNotes of
-    Nothing                           -> assertFailure "Could not find note with id: 1234"
+    Nothing                           -> assertFailure $ "Could not find note with id: " <> (show noteId)
     Just (dbId, dbMessage, dbVersion) -> do
           (getInt dbId)           @?= noteId
           (getNoteText dbMessage) @?= noteMessage
           (getInt dbVersion)      @?= noteVersion
 
 
-assertCreateNoteResult ::  NoteIdVersion -> NoteIdVersion -> Assertion
-assertCreateNoteResult expected actual = actual @?= expected
-
 getRequest :: B.ByteString -> Session SResponse
 getRequest = request . setPath defaultRequest
+
 
 postJSON :: B.ByteString -> LB.ByteString -> Session SResponse
 postJSON path json = srequest $ SRequest req json
