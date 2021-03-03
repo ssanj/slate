@@ -14,6 +14,7 @@ import Network.Wai            (Application)
 import Data.Foldable          (traverse_)
 import Model                  (OutgoingNote(..))
 import DB.DBNote              (NoteIdVersion, mkNoteIdVersion, mkNoteId, mkNoteVersion, getNoteText, getInt)
+import Data.Function          ((&))
 
 import qualified Web.Scotty.Trans     as ST
 import qualified Network.Wai          as W
@@ -160,18 +161,24 @@ assertUpdateNote _ con = runAssertion $ do
    response <- runSession (postJSON "/note" incoming) app
 
    let expectedNote = mkNoteIdVersion (mkNoteId noteId)  (mkNoteVersion noteNewVersion)
-   assertResponseStatus response H.status200
-   assertResponseBody response expectedNote
+
+   traverse_
+    (response &)
+    [
+      assertResponseStatus H.status200
+    , assertResponseBody expectedNote
+    ]
+
    assertNoteInDB noteId noteMessage noteNewVersion con
 
-assertResponseBody :: forall a . (A.FromJSON a, Eq a, Show a) => SResponse -> a -> Assertion
-assertResponseBody response expected =
+assertResponseBody :: forall a . (A.FromJSON a, Eq a, Show a) => a -> SResponse -> Assertion
+assertResponseBody expected response =
   let body                                   = simpleBody response
       resultE :: Either String a = A.eitherDecode body
   in  either (assertFailure . ("Could not decode result: " <>)) (assertEq' expected) resultE
 
-assertResponseStatus :: SResponse -> H.Status -> Assertion
-assertResponseStatus response = assertEq (simpleStatus response)
+assertResponseStatus :: H.Status -> SResponse -> Assertion
+assertResponseStatus status response = assertEq (simpleStatus response) status
 
 assertEq :: (Eq a, Show a) => a -> a -> Assertion
 assertEq = (@?=)
