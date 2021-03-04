@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module DBSpec where
+module DBNote_determineUpdateSpec where
 
 import DB.DBNote
 import Test.Tasty.HUnit       ((@?=), Assertion, assertFailure)

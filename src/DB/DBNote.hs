@@ -21,6 +21,7 @@ module DB.DBNote
        ,  VersionRange(..)
        ,  NoteVersionEquality(..)
        ,  UpdateAction(..)
+       ,  DeleteAction(..)
        ,  NoteVersionAndDeletedFromDB(..)
 
           -- GETTERS
@@ -56,6 +57,7 @@ module DB.DBNote
        ,  versionRange
        ,  sameNoteVersion
        ,  determineUpdate
+       ,  determineDelete
 
        ) where
 
@@ -85,6 +87,8 @@ type UpdatedNoteVersion = TInt UpdatedVersionTag
 type NoteVersionFromDB = TInt NoteVersionFromDBTag
 
 data NoteVersionAndDeletedFromDB = NoteVersionAndDeletedFromDB NoteVersionFromDB NoteDeleted
+
+data NoteIdAndDeletedFromDB = NoteIdAndDeletedFromDB NoteId NoteDeleted
 
 newtype NoteText = NoteText Text deriving stock (Eq, Show)
 
@@ -118,6 +122,11 @@ data UpdateAction = DoUpdate NoteId NoteText NoteVersionFromDB UpdatedNoteVersio
                   | CantUpdateDeletedNote deriving stock (Eq, Show)
 
 
+data DeleteAction = DoDelete NoteId
+                  | NoteNotFound NoteId
+                  | NoteAlreadyDeleted NoteId deriving stock (Eq, Show)
+
+
 versionRange :: VersionRange -> NoteVersion -> NoteVersionRange
 versionRange (VersionRange minR  maxR) noteVersion =
   let version = untag noteVersion
@@ -145,6 +154,13 @@ determineUpdate dbNote (Just (NoteVersionAndDeletedFromDB dbVersion deleted)) ve
         ((ValidNoteVersionRange _),           (DifferentNoteVersions v1 v2)) -> VersionMismatchError v1 v2
         ((InvalidNoteVersionRange version _), (SameNoteVersion _ ))          -> InvalidVersionRangeError version
         ((InvalidNoteVersionRange version _), (DifferentNoteVersions _ _))   -> InvalidVersionRangeError version
+
+
+determineDelete :: NoteId -> Maybe NoteIdAndDeletedFromDB -> DeleteAction
+determineDelete itemId Nothing                                       = NoteNotFound itemId
+determineDelete _ (Just (NoteIdAndDeletedFromDB noteId noteDeleted)) =
+  if getBool noteDeleted then NoteAlreadyDeleted noteId
+  else DoDelete noteId
 
 mkNoteIdVersion :: NoteId -> NoteVersion -> NoteIdVersion
 mkNoteIdVersion = NoteIdVersion
