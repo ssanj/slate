@@ -8,7 +8,7 @@ module SlateApi2Spec where
 import Network.Wai.Test
 
 import Test.Tasty.HUnit       (Assertion, assertFailure, assertBool, (@?=), (@=?))
-import SlateApi               (getIndexFile, getNotesEndpoint, performSearchEndpoint, createNoteEndpoint)
+import SlateApi               (getIndexFile, getNotesEndpoint, performSearchEndpoint, createNoteEndpoint, deleteNoteEndpoint)
 import Server                 (Except)
 import Network.Wai            (Application)
 import Data.Foldable          (traverse_)
@@ -103,15 +103,13 @@ assertSearchNotes _ con = runAssertion $ do
     ]
 
 
-unit_create_note :: Assertion
-unit_create_note = dbWithinTxTest noTestData assertCreateNote
-
-
-unit_update_note :: Assertion
-unit_update_note = dbWithinTxTest singleNote assertUpdateNote
 
 
 -- createNoteEndpoint
+
+unit_create_note :: Assertion
+unit_create_note = dbWithinTxTest noTestData assertCreateNote
+
 
 assertCreateNote :: SeededDB -> DBAction ((), CleanUp)
 assertCreateNote _ con = runAssertion $ do
@@ -126,6 +124,10 @@ assertCreateNote _ con = runAssertion $ do
       assertResponseStatus H.status201
     , assertResponseBody expectedNoteIdVersion
     ]
+
+
+unit_update_note :: Assertion
+unit_update_note = dbWithinTxTest singleNote assertUpdateNote
 
 
 singleNote :: InitialisedDB -> DBAction ((), SeededDB)
@@ -159,6 +161,24 @@ assertUpdateNote _ con = runAssertion $ do
     ]
 
    assertNoteInDB noteId noteMessage noteNewVersion con
+
+
+-- deleteNote endpoing
+
+unit_delete_note :: Assertion
+unit_delete_note = dbWithinTxTest insertSeedDataSearchNotes assertDeleteNote
+
+
+assertDeleteNote :: SeededDB -> DBAction ((), CleanUp)
+assertDeleteNote _ = \con -> runAssertion $ do
+  app      <- route . deleteNoteEndpoint $ con
+  response <- runSession (deleteRequest "/note/1000") app
+
+  traverse_
+    (response &)
+    [
+      assertResponseStatus H.status204
+    ]
 
 
 -- Helper functions
@@ -216,6 +236,9 @@ assertCollectionResults expectedItems actualItems = do
 
 getRequest :: B.ByteString -> Session SResponse
 getRequest = request . setPath defaultRequest
+
+deleteRequest :: B.ByteString -> Session SResponse
+deleteRequest = request . setPath defaultRequest { W.requestMethod = H.methodDelete }
 
 
 postJSON :: B.ByteString -> LB.ByteString -> Session SResponse

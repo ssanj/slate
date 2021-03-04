@@ -158,5 +158,8 @@ dbWithinTxTest seedF action = dbTestTx testDatabaseName $ DBTest createSchema se
 runAssertion :: IO a -> IO (a, CleanUp)
 runAssertion assertion = ((, AssertionRun)) <$> assertion
 
+runSeeding :: IO a -> IO (a, SeededDB)
+runSeeding seedAction = ((, SeededDB)) <$> seedAction
+
 noTestData :: InitialisedDB -> DBAction ((), SeededDB)
-noTestData _ = \_ ->  pure ((), SeededDB)
+noTestData _ = \_ ->  runSeeding $ pure ()

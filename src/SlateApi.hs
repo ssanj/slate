@@ -11,6 +11,7 @@ module SlateApi
        , getNotesEndpoint
        , performSearchEndpoint
        , createNoteEndpoint
+       , deleteNoteEndpoint
        ) where
 
 import Server
