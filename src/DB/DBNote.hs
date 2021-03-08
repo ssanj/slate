@@ -22,7 +22,8 @@ module DB.DBNote
        ,  NoteVersionEquality(..)
        ,  UpdateAction(..)
        ,  DeleteAction(..)
-       ,  NoteVersionAndDeletedFromDB(..)
+       ,  NoteVersionAndDeletedFromDB
+       ,  NoteIdAndDeletedFromDB
 
           -- GETTERS
 
@@ -51,6 +52,7 @@ module DB.DBNote
        ,  mkUpdatedNoteIdVersion
        ,  mkNoteVersionFromDB
        ,  mkNoteVersionAndDeletetionFromDB
+       ,  mkNoteIdAndDeletetionFromDB
 
          -- UTIL
 
@@ -183,6 +185,10 @@ mkNoteVersionFromDB = Tagged
 mkNoteVersionAndDeletetionFromDB :: Int -> Bool -> NoteVersionAndDeletedFromDB
 mkNoteVersionAndDeletetionFromDB version deleted = NoteVersionAndDeletedFromDB (Tagged version) (Tagged deleted)
 
+
+mkNoteIdAndDeletetionFromDB :: Int -> Bool -> NoteIdAndDeletedFromDB
+mkNoteIdAndDeletetionFromDB nId nDeleted = NoteIdAndDeletedFromDB (Tagged nId) (Tagged nDeleted)
+
 getInt :: TInt a -> Int
 getInt = untag
 
@@ -241,6 +247,9 @@ instance FromRow DBNote where
 
 instance FromRow NoteVersionAndDeletedFromDB where
   fromRow = mkNoteVersionAndDeletetionFromDB <$> field <*> field
+
+instance FromRow NoteIdAndDeletedFromDB where
+  fromRow = mkNoteIdAndDeletetionFromDB <$> field <*> field
 
 instance ToRow DBNote where
   toRow (DBNote id_ message_ version_ ) = toRow (id_, message_, version_)

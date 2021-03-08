@@ -206,8 +206,8 @@ assert_deleted_notes_cant_be_updated _ = \con -> do
       case resultE of
         Left dbError ->
           case dbError of
-            (InvalidUpdate _) -> runAssertionSuccess
-            otherError        -> runAssertionFailure $ "Expected InvalidUpdate error but got: " <> (show otherError)
+            (UpdatingDeletedNote _) -> runAssertionSuccess
+            otherError              -> runAssertionFailure $ "Expected UpdatingDeletedNote error but got: " <> (show otherError)
         Right found -> runAssertionFailure $ "should not save a deleted note: " <> (show found)
 
 

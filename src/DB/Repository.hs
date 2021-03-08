@@ -69,7 +69,7 @@ saveExistingNote dbNote con = do
       (InvalidVersionRangeError version) ->
         pure . Left $ InvalidVersion version
 
-      CantUpdateDeletedNote -> pure . Left $ InvalidUpdate (getInt noteId)
+      CantUpdateDeletedNote -> pure . Left $ UpdatingDeletedNote (getInt noteId)
 
 
 getNoteVersionAndDeleteStatusFromDB :: NoteId -> Connection -> IO (Maybe NoteVersionAndDeletedFromDB)

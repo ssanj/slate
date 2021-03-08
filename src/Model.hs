@@ -96,7 +96,7 @@ data Except = MalformedJsonInput T.Text
 data DBError = ItemNotFound Int
              | InvalidVersion Int
              | VersionMismatch Int Int
-             | InvalidUpdate Int
+             | UpdatingDeletedNote Int
              | NoteTextIsEmpty deriving stock (Eq, Show)
 
 
@@ -105,14 +105,14 @@ getDBErrorCode (ItemNotFound _)      = 1000
 getDBErrorCode (InvalidVersion _)    = 1001
 getDBErrorCode (VersionMismatch _ _) = 1002
 getDBErrorCode NoteTextIsEmpty       = 1004
-getDBErrorCode (InvalidUpdate _)     = 1005
+getDBErrorCode (UpdatingDeletedNote _)     = 1005
 
 dbErrorToString :: DBError -> OutgoingError
-dbErrorToString db@(ItemNotFound _)      = OutgoingError (getDBErrorCode db) "The note specified could not be found"
-dbErrorToString db@(InvalidVersion _)    = OutgoingError (getDBErrorCode db) "The version of the note supplied is invalid"
-dbErrorToString db@(VersionMismatch _ _) = OutgoingError (getDBErrorCode db) "There's a different version of this note on the server. Refresh and try again"
-dbErrorToString db@(NoteTextIsEmpty)     = OutgoingError (getDBErrorCode db) "The note supplied does not have any text. Please add some text and try again"
-dbErrorToString db@(InvalidUpdate _)     = OutgoingError (getDBErrorCode db) "The note supplied could not be updated as it has been deleted"
+dbErrorToString db@(ItemNotFound _)        = OutgoingError (getDBErrorCode db) "The note specified could not be found"
+dbErrorToString db@(InvalidVersion _)      = OutgoingError (getDBErrorCode db) "The version of the note supplied is invalid"
+dbErrorToString db@(VersionMismatch _ _)   = OutgoingError (getDBErrorCode db) "There's a different version of this note on the server. Refresh and try again"
+dbErrorToString db@(NoteTextIsEmpty)       = OutgoingError (getDBErrorCode db) "The note supplied does not have any text. Please add some text and try again"
+dbErrorToString db@(UpdatingDeletedNote _) = OutgoingError (getDBErrorCode db) "The note supplied could not be updated as it has been deleted"
 
 
 outgoingErrorText :: Int -> T.Text -> T.Text
