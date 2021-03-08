@@ -120,16 +120,18 @@ createNoteEndpoint con =
     (note :: IncomingNote) <- jsonErrorHandle
     noteIdE <- txSlateAction (saveNote note) con
     case noteIdE of
-     (Left errorMessage) -> withError errorMessage
+     (Left errorMessage)   -> withError errorMessage status400
      (Right noteIdVersion) -> maybe (jsonResponse created201 noteIdVersion) (const $ jsonResponse ok200 noteIdVersion) (_incomingNoteAndVersion note)
 
 
 deleteNoteEndpoint :: Connection -> SlateScottyAction
 deleteNoteEndpoint con =
   ST.delete "/note/:noteId" $ do
-    noteId        <- mkNoteId <$> ST.param "noteId"
-    txSlateAction (deleteNote noteId) con
-    ST.status noContent204
+    noteId  <- mkNoteId <$> ST.param "noteId"
+    deleteE <- txSlateAction (deleteNote noteId) con
+    case deleteE of
+      Left errorMessage -> withError errorMessage status400
+      Right _           -> ST.status noContent204
 
 
 txSlateActionWithJson :: ToJSON a => (Connection -> IO a) -> Connection -> SlateAction IO ()
@@ -167,8 +169,8 @@ getAsciiBanner =
         pure "= SLATE ="
 
 
-withError :: Monad m => DBError -> SlateAction m ()
-withError dbError = ST.json (dbErrorToString dbError) >> ST.status status400
+withError :: Monad m => DBError -> Status -> SlateAction m ()
+withError dbError status = ST.json (dbErrorToString dbError) >> ST.status status
 
 
 withPooledConnection :: P.Pool Connection -> (Connection -> IO a) -> IO a
@@ -197,5 +199,5 @@ retrieveTopNotes :: Connection -> IO [OutgoingNote]
 retrieveTopNotes con = fmap (fmap getOutgoingNote) (fetchNotes maxFetchSize con)
 
 
-deleteNote :: NoteId -> Connection -> IO ()
+deleteNote :: NoteId -> Connection -> IO (Either DBError ())
 deleteNote = deactivateNote
