@@ -246,7 +246,7 @@ emptyNotes _ = \_ ->  pure ((), SeededDB)
 
 
 insertSeedDataSearchNotes :: InitialisedDB -> DBAction ((), SeededDB)
-insertSeedDataSearchNotes _ = \con -> do
+insertSeedDataSearchNotes _ = \con -> runSeeding $ do
   traverse_
     (\msg -> insertMessage msg con)
     [
@@ -257,11 +257,10 @@ insertSeedDataSearchNotes _ = \con -> do
     , ("# Deleted Title\nThis is a deleted blog article about ...", "2020-06-02T15:36:56.200", True)
     , ("# Whatever you like\nThis is a BloG article about ...", "2020-09-02T15:36:56.200", False)
     ]
-  pure ((), SeededDB)
 
 
 insertSeedDataFetchNotes :: InitialisedDB -> DBAction ((), SeededDB)
-insertSeedDataFetchNotes _ = \con -> do
+insertSeedDataFetchNotes _ = \con -> runSeeding $ do
   traverse_ (\n -> insertMessageNumbered n con) [1..20]
   traverse_
     (\msg -> insertMessage msg con)
@@ -272,5 +271,4 @@ insertSeedDataFetchNotes _ = \con -> do
     , ("# Blog Article\nThis is a blog article about..", "2020-06-02T15:36:56.200", False)
     , ("# Another deleted note\nThis is an old blog article about..", "2020-06-02T15:36:56.200", True)
     ]
-  pure ((), SeededDB)
 

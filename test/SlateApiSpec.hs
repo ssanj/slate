@@ -1,69 +1,290 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE QuasiQuotes         #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 
 module SlateApiSpec where
 
--- import           Test.Hspec
--- import           Test.Hspec.Wai
+import Network.Wai.Test
 
--- import qualified  Web.Scotty.Trans       as ST
--- import qualified  Data.ByteString.Lazy   as LB
--- import qualified  Data.Text              as T
--- import qualified  Data.Text.Encoding     as TE
--- import qualified  Database.SQLite.Simple as SQL
--- import            SlateApi (getIndexFile)
--- import            Server   (Except)
--- import            Network.Wai (Application)
--- import            Control.Monad (void)
+import Test.Tasty.HUnit       (Assertion, assertFailure, assertBool, (@?=), (@=?))
+import SlateApi               (getIndexFile, getNotesEndpoint, performSearchEndpoint, createNoteEndpoint, deleteNoteEndpoint)
+import Server                 (Except)
+import Network.Wai            (Application)
+import Data.Foldable          (traverse_)
+import Model                  (OutgoingNote(..))
+import DB.DBNote              (mkNoteIdVersion, mkNoteId, mkNoteVersion, getNoteText, getInt, getBool)
+import Data.Function          ((&))
 
--- import Scaffold
+import qualified Web.Scotty.Trans     as ST
+import qualified Network.Wai          as W
+import qualified Network.HTTP.Types   as H
+import qualified Data.ByteString      as B
+import qualified Data.ByteString.Lazy as LB
+import qualified Data.Aeson           as A
+import qualified Data.Text            as T
 
--- spec :: Spec
--- spec = withState (return 42) :: IO Int $
---   describe "This magical number" $
---     it "is bigger than 40" $ \n ->
---       n `shouldSatisfy` (>40)
-
--- route :: ST.ScottyT Except IO () -> IO Application
--- route = ST.scottyAppT id
-
--- spec_root :: Spec
--- spec_root =
---     with (route getIndexFile) $ do
-    -- describe "GET /" $ do
-    --   it "responds with 200" $ do
-    --     get "/" `shouldRespondWith` 200 { matchBody =  bodyContaining "<title>Scrib - Home</title>" }
-
-    -- withState (xyz) $ do
-    --   describe "GET /" $ do
-    --     it "responds with 200" $ \(_::SQL.Connection) -> do
-    --       get "/" `shouldRespondWith` 200 { matchBody =  bodyContaining "<title>Scrib - Home</title>" }
+import Scaffold
 
 
-    -- it "responds with 'hello'" $ do
-    --   get "/notes" `shouldRespondWith` 401
+--- getIndexFile
 
-  --   it "responds with 200 / 'hello'" $ do
-  --     get "/" `shouldRespondWith` "hello" {matchStatus = 200}
+unit_root :: Assertion
+unit_root = do
+  app      <- route getIndexFile
+  response <- runSession (getRequest "/") app
 
-  --   it "has 'Content-Type: text/plain; charset=utf-8'" $ do
-  --     get "/" `shouldRespondWith` 200 {matchHeaders = ["Content-Type" <:> "text/plain; charset=utf-8"]}
-
-  -- describe "GET /some-json" $ do
-  --   it "responds with some JSON" $ do
-  --     get "/some-json" `shouldRespondWith` [json|{foo: 23, bar: 42}|]
+  assertResponseStatus H.status200 response
 
 
+--- getNotesEndpoint
+
+unit_notes :: Assertion
+unit_notes = dbWithinTxTest insertSeedDataSearchNotes assertGetNotes
 
 
--- bodyContaining :: T.Text -> MatchBody
--- bodyContaining expectedText =
---   MatchBody (\_ -> containsMatchingText)
---     where
---       containsMatchingText :: LB.ByteString -> Maybe String
---       containsMatchingText actual =
---         let actualText = TE.decodeUtf8 . LB.toStrict $ actual
---         in
---           if expectedText `T.isInfixOf` actualText then Nothing
---           else Just $ "\nexpected: " <> (show expectedText) <> "\nbut got: " <> (show actualText)
+assertGetNotes :: SeededDB -> DBAction ((), CleanUp)
+assertGetNotes _ con = runAssertion $ do
+   app      <- route . getNotesEndpoint $ con
+   response <- runSession (getRequest "/notes") app
+   let expectedNotes :: [T.Text] =
+         [
+           "# Some Note\nYolo"
+         , "# Another note\nMore and more"
+         , "# Random Title\nThis is a blog article about ..."
+         , "# Blog Article\nThis is an article about ..."
+         , "# Whatever you like\nThis is a BloG article about ..."
+         ]
+
+   traverse_
+    (response &)
+    [
+      assertResponseStatus H.status200
+    , assertResponseBodyCollection expectedNotes _outgoingNoteText
+    ]
+
+
+insertSeedDataSearchNotes :: InitialisedDB -> DBAction ((), SeededDB)
+insertSeedDataSearchNotes _ = \con -> runSeeding $ do
+  traverse_
+    (\msg -> insertMessage msg con)
+    [
+      ("# Some Note\nYolo", "2020-06-01T15:36:56.200", False)
+    , ("# Another note\nMore and more", "2020-06-09T15:36:56.200", False)
+    , ("# Random Title\nThis is a blog article about ...", "2020-06-02T15:36:56.200", False)
+    , ("# Blog Article\nThis is an article about ...", "2020-06-01T15:36:56.200", False)
+    , ("# Deleted Title\nThis is a deleted blog article about ...", "2020-06-02T15:36:56.200", True)
+    , ("# Whatever you like\nThis is a BloG article about ...", "2020-09-02T15:36:56.200", False)
+    ]
+
+
+--- performSearchEndpoint
+
+unit_perform_search :: Assertion
+unit_perform_search = dbWithinTxTest insertSeedDataSearchNotes assertSearchNotes
+
+
+assertSearchNotes :: SeededDB -> DBAction ((), CleanUp)
+assertSearchNotes _ con = runAssertion $ do
+   app      <- route . performSearchEndpoint $ con
+   response <- runSession (getRequest "/search?q=random") app
+
+   let expectedNotes :: [T.Text] =
+         [
+           "# Random Title\nThis is a blog article about ..."
+         ]
+
+   traverse_
+    (response & )
+    [
+      assertResponseStatus H.status200
+    , assertResponseBodyCollection expectedNotes _outgoingNoteText
+    ]
+
+
+
+
+-- createNoteEndpoint
+
+unit_create_note :: Assertion
+unit_create_note = dbWithinTxTest noTestData assertCreateNote
+
+
+assertCreateNote :: SeededDB -> DBAction ((), CleanUp)
+assertCreateNote _ con = runAssertion $ do
+   app      <- route . createNoteEndpoint $ con
+   let incoming = A.encode $ A.object [ "noteText" A..= ("Sample text" :: T.Text)]
+   response <- runSession (postJSON "/note" incoming) app
+   let expectedNoteIdVersion = mkNoteIdVersion (mkNoteId 1)  (mkNoteVersion 1)
+
+   traverse_
+    (response &)
+    [
+      assertResponseStatus H.status201
+    , assertResponseBody expectedNoteIdVersion
+    ]
+
+
+unit_update_note :: Assertion
+unit_update_note = dbWithinTxTest singleNote assertUpdateNote
+
+
+singleNote :: InitialisedDB -> DBAction ((), SeededDB)
+singleNote _ = \con -> runSeeding $ do
+  insertSpecificMessage 1234 "Some message" con
+
+
+assertUpdateNote :: SeededDB -> DBAction ((), CleanUp)
+assertUpdateNote _ con = runAssertion $ do
+   app      <- route . createNoteEndpoint $ con
+   let noteId         = 1234 :: Int
+       noteMessage    = "Some other message" :: T.Text
+       noteVersion    = 1 :: Int
+       noteNewVersion = 2 :: Int
+       incoming       = A.encode $
+                          A.object [
+                            "noteText"    A..= noteMessage
+                          , "noteId"      A..= noteId
+                          , "noteVersion" A..= noteVersion
+                          ]
+   response <- runSession (postJSON "/note" incoming) app
+
+   let expectedNote = mkNoteIdVersion (mkNoteId noteId)  (mkNoteVersion noteNewVersion)
+
+   traverse_
+    (response &)
+    [
+      assertResponseStatus H.status200
+    , assertResponseBody expectedNote
+    ]
+
+   assertNoteInDB noteId noteMessage noteNewVersion con
+
+
+-- deleteNote endpoing
+
+unit_delete_note_no_matching_notes :: Assertion
+unit_delete_note_no_matching_notes = dbWithinTxTest noTestData assertDeleteNoteUnmatchedNote
+
+
+unit_delete_note_matching_notes :: Assertion
+unit_delete_note_matching_notes = dbWithinTxTest insertDSeedDataDeleteNotes assertDeleteNoteMatchedNote
+
+insertDSeedDataDeleteNotes :: InitialisedDB -> DBAction ((), SeededDB)
+insertDSeedDataDeleteNotes _ = \con -> runSeeding $ do
+  traverse_
+    (\(index, msg) -> insertSpecificMessage index msg con)
+    [
+      (1000, "# Note 1000")
+    , (1001, "# Note 1001")
+    , (1002, "# Note 1002")
+    ]
+
+
+assertDeleteNoteUnmatchedNote :: SeededDB -> DBAction ((), CleanUp)
+assertDeleteNoteUnmatchedNote _ = \con -> runAssertion $ do
+  app      <- route . deleteNoteEndpoint $ con
+  response <- runSession (deleteRequest "/note/1000") app
+
+  traverse_
+    (response &)
+    [
+      assertResponseStatus H.status400
+    ]
+
+
+assertDeleteNoteMatchedNote :: SeededDB -> DBAction ((), CleanUp)
+assertDeleteNoteMatchedNote _ = \con -> runAssertion $ do
+  app      <- route . deleteNoteEndpoint $ con
+  response <- runSession (deleteRequest "/note/1001") app
+
+  traverse_
+    (response &)
+    [
+      assertResponseStatus H.status204
+    ]
+
+
+  assertNoteInDBIsDeleted 1000 False con
+  assertNoteInDBIsDeleted 1001 True  con
+  assertNoteInDBIsDeleted 1002 False con
+
+-- Helper functions
+
+
+assertResponseBody :: forall a . (A.FromJSON a, Eq a, Show a) => a -> SResponse -> Assertion
+assertResponseBody expected response =
+  let body                       = simpleBody response
+      resultE :: Either String a = A.eitherDecode body
+  in  either (assertFailure . ("Could not decode result: " <>)) (assertEq' expected) resultE
+
+
+assertResponseStatus :: H.Status -> SResponse -> Assertion
+assertResponseStatus status response = assertEq (simpleStatus response) status
+
+
+assertEq :: (Eq a, Show a) => a -> a -> Assertion
+assertEq = (@?=)
+
+
+assertEq' :: (Eq a, Show a) => a -> a -> Assertion
+assertEq' = (@=?)
+
+
+assertNoteInDB :: Int -> T.Text -> Int -> DBAction ()
+assertNoteInDB noteId noteMessage noteVersion con = do
+   dbNotes <- findDBNote noteId con
+   case dbNotes of
+    Nothing                           -> assertFailure $ "Could not find note with id: " <> (show noteId)
+    Just (dbId, dbMessage, dbVersion, _) -> do
+          (getInt dbId)           @?= noteId
+          (getNoteText dbMessage) @?= noteMessage
+          (getInt dbVersion)      @?= noteVersion
+
+assertNoteInDBIsDeleted :: Int -> Bool -> DBAction ()
+assertNoteInDBIsDeleted noteId deletedFlag con = do
+   dbNotes <- findDBNote noteId con
+   case dbNotes of
+    Nothing                           -> assertFailure $ "Could not find note with id: " <> (show noteId)
+    Just (dbId, _, _, dbDeleted) -> do
+          (getInt dbId)           @?= noteId
+          (getBool dbDeleted)     @?= deletedFlag
+
+
+assertResponseBodyCollection :: forall a b . (A.FromJSON a, Eq b, Show b) => [b] -> (a -> b) -> SResponse -> Assertion
+assertResponseBodyCollection expected convertResponse response =
+  let body                       = simpleBody response
+      resultE :: Either String [a] = A.eitherDecode body
+  in  either (assertFailure . ("Could not decode result: " <>)) (assertCollectionResults expected . fmap convertResponse) resultE
+
+
+assertCollectionResults :: (Eq a, Show a) => [a] -> [a] -> Assertion
+assertCollectionResults expectedItems actualItems = do
+ (length actualItems) @?= (length expectedItems)
+
+ assertBool
+   ("Could not find all expected items in actual items.\nExpected: " <>
+    (show expectedItems)                                             <>
+    "\nActual: "                                                     <>
+    (show actualItems)
+   )
+   (all (`elem` expectedItems) actualItems)
+
+
+getRequest :: B.ByteString -> Session SResponse
+getRequest = request . setPath defaultRequest
+
+deleteRequest :: B.ByteString -> Session SResponse
+deleteRequest = request . setPath defaultRequest { W.requestMethod = H.methodDelete }
+
+
+postJSON :: B.ByteString -> LB.ByteString -> Session SResponse
+postJSON path json = srequest $ SRequest req json
+  where
+    req = setPath defaultRequest
+            { W.requestMethod = H.methodPost
+            , W.requestHeaders = [(H.hContentType, "application/json")]} path
+
+
+route :: ST.ScottyT Except IO () -> IO Application
+route = ST.scottyAppT id
