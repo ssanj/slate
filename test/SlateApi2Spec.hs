@@ -13,7 +13,7 @@ import Server                 (Except)
 import Network.Wai            (Application)
 import Data.Foldable          (traverse_)
 import Model                  (OutgoingNote(..))
-import DB.DBNote              (mkNoteIdVersion, mkNoteId, mkNoteVersion, getNoteText, getInt)
+import DB.DBNote              (mkNoteIdVersion, mkNoteId, mkNoteVersion, getNoteText, getInt, getBool)
 import Data.Function          ((&))
 
 import qualified Web.Scotty.Trans     as ST
@@ -165,14 +165,42 @@ assertUpdateNote _ con = runAssertion $ do
 
 -- deleteNote endpoing
 
-unit_delete_note :: Assertion
-unit_delete_note = dbWithinTxTest insertSeedDataSearchNotes assertDeleteNote
+unit_delete_note_no_matching_notes :: Assertion
+unit_delete_note_no_matching_notes = dbWithinTxTest noTestData assertDeleteNoteUnmatchedNote
 
 
-assertDeleteNote :: SeededDB -> DBAction ((), CleanUp)
-assertDeleteNote _ = \con -> runAssertion $ do
+unit_delete_note_matching_notes :: Assertion
+unit_delete_note_matching_notes = dbWithinTxTest insertDSeedDataDeleteNotes assertDeleteNoteMatchedNote
+
+insertDSeedDataDeleteNotes :: InitialisedDB -> DBAction ((), SeededDB)
+insertDSeedDataDeleteNotes _ = \con -> do
+  traverse_
+    (\(index, msg) -> insertSpecificMessage index msg con)
+    [
+      (1000, "# Note 1000")
+    , (1001, "# Note 1001")
+    , (1002, "# Note 1002")
+    ]
+  pure ((), SeededDB)
+
+
+
+assertDeleteNoteUnmatchedNote :: SeededDB -> DBAction ((), CleanUp)
+assertDeleteNoteUnmatchedNote _ = \con -> runAssertion $ do
   app      <- route . deleteNoteEndpoint $ con
   response <- runSession (deleteRequest "/note/1000") app
+
+  traverse_
+    (response &)
+    [
+      assertResponseStatus H.status400
+    ]
+
+
+assertDeleteNoteMatchedNote :: SeededDB -> DBAction ((), CleanUp)
+assertDeleteNoteMatchedNote _ = \con -> runAssertion $ do
+  app      <- route . deleteNoteEndpoint $ con
+  response <- runSession (deleteRequest "/note/1001") app
 
   traverse_
     (response &)
@@ -180,6 +208,10 @@ assertDeleteNote _ = \con -> runAssertion $ do
       assertResponseStatus H.status204
     ]
 
+
+  assertNoteInDBIsDeleted 1000 False con
+  assertNoteInDBIsDeleted 1001 True  con
+  assertNoteInDBIsDeleted 1002 False con
 
 -- Helper functions
 
@@ -208,10 +240,19 @@ assertNoteInDB noteId noteMessage noteVersion con = do
    dbNotes <- findDBNote noteId con
    case dbNotes of
     Nothing                           -> assertFailure $ "Could not find note with id: " <> (show noteId)
-    Just (dbId, dbMessage, dbVersion) -> do
+    Just (dbId, dbMessage, dbVersion, _) -> do
           (getInt dbId)           @?= noteId
           (getNoteText dbMessage) @?= noteMessage
           (getInt dbVersion)      @?= noteVersion
+
+assertNoteInDBIsDeleted :: Int -> Bool -> DBAction ()
+assertNoteInDBIsDeleted noteId deletedFlag con = do
+   dbNotes <- findDBNote noteId con
+   case dbNotes of
+    Nothing                           -> assertFailure $ "Could not find note with id: " <> (show noteId)
+    Just (dbId, _, _, dbDeleted) -> do
+          (getInt dbId)           @?= noteId
+          (getBool dbDeleted)     @?= deletedFlag
 
 
 assertResponseBodyCollection :: forall a b . (A.FromJSON a, Eq b, Show b) => [b] -> (a -> b) -> SResponse -> Assertion

@@ -6,7 +6,7 @@ module Scaffold where
 import Database.SQLite.Simple
 import Database.SQLite.Simple.Time (parseUTCTime)
 import Data.Tagged                 (Tagged(..), untag)
-import DB.DBNote                   (DBNote, getDBNote, getNoteText, NoteId, NoteText, NoteVersion)
+import DB.DBNote                   (DBNote, getDBNote, getNoteText, NoteId, NoteText, NoteVersion, NoteDeleted)
 import Data.Text                   (Text, pack)
 import Control.Exception           (bracket)
 import Control.Monad               (void)
@@ -118,7 +118,7 @@ insertMessage (message, date, deleted) = \con ->
       Right dateTime -> execute con "INSERT INTO SCRIB(MESSAGE, CREATED_AT, UPDATED_AT, DELETED) VALUES (?,?,?,?)" (message, dateTime, dateTime, deleted)
 
 
-insertSpecificMessage :: Int -> Text ->DBAction ()
+insertSpecificMessage :: Int -> Text -> DBAction ()
 insertSpecificMessage id_ message = \con ->
   execute con "INSERT INTO SCRIB(ID, MESSAGE) VALUES (?,?)" (id_, message)
 
@@ -128,12 +128,12 @@ insertMessageNumbered item = \con ->
   let message = "# Test message " <> (pack . show $ item) <> "\n This is only a test" :: Text
   in insertMessage (message, "2010-05-28T15:36:56.200", False) con
 
-findDBNote :: Int -> DBAction (Maybe (NoteId, NoteText, NoteVersion))
+findDBNote :: Int -> DBAction (Maybe (NoteId, NoteText, NoteVersion, NoteDeleted))
 findDBNote dbNoteId = \con -> do
-   dbNotes <- query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE ID = ?" (Only dbNoteId):: IO [DBNote]
+   dbNotes <- query con "SELECT ID, MESSAGE, VERSION, DELETED FROM SCRIB WHERE ID = ?" (Only dbNoteId):: IO [(NoteId, NoteText, NoteVersion, NoteDeleted)]
    case dbNotes of
     []         -> pure Nothing
-    (dbNote:_) -> pure . Just . getDBNote $ dbNote
+    (dbNote:_) -> pure . Just $ dbNote
 
 deleteSchema :: CleanUp -> DBAction ()
 deleteSchema _ con = execute_ con "DROP TABLE IF EXISTS SCRIB"

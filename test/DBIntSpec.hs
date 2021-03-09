@@ -223,16 +223,19 @@ assert_delete_note _ = \con -> do
       t0 @?= (1000, False)
       t1 @?= (1001, False)
       t2 @?= (1002, False)
-      deactivateNote noteId con
-      resultsAfter <- query_ con "SELECT ID, DELETED FROM SCRIB ORDER BY ID" :: IO [(Int, Bool)]
-      case resultsAfter of
-        [t0', t1', t2'] -> do
-          t0' @?= (1000, False)
-          t1' @?= (1001, True)
-          t2' @?= (1002, False)
-          runAssertionSuccess
-        others              -> runAssertionFailure $ "Expected three results with ids: 1000,1001,1002 but got:" <> (show others)
-    others              -> runAssertionFailure $ "Expected three results with ids: 1000,1001,1002 but got: " <> (show others)
+      deleteE <- deactivateNote noteId con
+      case deleteE of
+        Left deleteError -> runAssertionFailure $ "Failed to delete note 1001: " <> (show deleteError)
+        Right _          -> do
+          resultsAfter <- query_ con "SELECT ID, DELETED FROM SCRIB ORDER BY ID" :: IO [(Int, Bool)]
+          case resultsAfter of
+            [t0', t1', t2'] -> do
+              t0' @?= (1000, False)
+              t1' @?= (1001, True)
+              t2' @?= (1002, False)
+              runAssertionSuccess
+            others              -> runAssertionFailure $ "Expected three results with ids: 1000,1001,1002 but got:" <> (show others)
+    others                  -> runAssertionFailure $ "Expected three results with ids: 1000,1001,1002 but got: " <> (show others)
 
 
 -- DATABASE SEED DATA

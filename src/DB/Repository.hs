@@ -77,6 +77,11 @@ getNoteVersionAndDeleteStatusFromDB noteId con =
   let resultIO = query con "SELECT VERSION, DELETED FROM SCRIB WHERE ID = ?" (Only noteId) :: IO [NoteVersionAndDeletedFromDB]
   in listToMaybe <$> resultIO
 
+getNoteIdAndDeleteStatusFromDB :: NoteId -> Connection -> IO (Maybe NoteIdAndDeletedFromDB)
+getNoteIdAndDeleteStatusFromDB noteId con =
+  let resultIO = query con "SELECT ID, DELETED FROM SCRIB WHERE ID = ?" (Only noteId) :: IO [NoteIdAndDeletedFromDB]
+  in listToMaybe <$> resultIO
+
 
 updateNote :: NoteId -> NoteText -> NoteVersionFromDB  -> UpdatedNoteVersion -> Connection -> IO ()
 updateNote noteId noteMessage dbVersion newVersion con =
@@ -106,12 +111,21 @@ fetchNotes (FetchSize size) con = query con "SELECT ID, MESSAGE, VERSION FROM SC
 searchNotes :: T.Text -> Connection -> IO [DBNote]
 searchNotes searchCriteria con = query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE MESSAGE LIKE (?) AND DELETED = 0 ORDER BY UPDATED_AT DESC" (Only ("%" <> searchCriteria <> "%")) :: IO [DBNote]
 
-deactivateNote :: NoteId -> Connection -> IO (Either DBError ())
-deactivateNote noteId con =
-  Right <$>
-    executeNamed con
-      "UPDATE SCRIB SET DELETED = 1 WHERE ID = :id AND DELETED != 1"
-        [
-          ":id"         := noteId
-        ]
 
+deactivateNote :: NoteId -> Connection -> IO (Either DBError ())
+deactivateNote noteId con = do
+    maybeDbIdAndDeleteFlag <- getNoteIdAndDeleteStatusFromDB noteId con
+    let deleteAction = determineDelete noteId maybeDbIdAndDeleteFlag
+    case deleteAction of
+      DoDelete _           -> Right <$> deleteNote noteId con
+      NoteNotFound _       -> pure . Left . ItemNotFound . getInt $ noteId
+      NoteAlreadyDeleted _ -> pure . Left . DeletingDeletedNote . getInt $ noteId
+
+
+deleteNote :: NoteId -> Connection -> IO ()
+deleteNote noteId con =
+  executeNamed con
+    "UPDATE SCRIB SET DELETED = 1 WHERE ID = :id AND DELETED != 1"
+      [
+        ":id"         := noteId
+      ]

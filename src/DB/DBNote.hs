@@ -13,6 +13,7 @@ module DB.DBNote
        ,  NewDBNote
        ,  NoteId
        ,  NoteVersion
+       ,  NoteDeleted
        ,  NoteVersionFromDB
        ,  UpdatedNoteVersion
        ,  NoteIdVersion
@@ -280,3 +281,5 @@ instance ToField a => ToField (Tagged x a) where
 instance FromField a => FromField (Tagged x a) where
   fromField = fmap Tagged . fromField
 
+instance FromField NoteText where
+  fromField = fmap NoteText . fromField
