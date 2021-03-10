@@ -123,6 +123,11 @@ insertSpecificMessage id_ message = \con ->
   execute con "INSERT INTO SCRIB(ID, MESSAGE) VALUES (?,?)" (id_, message)
 
 
+insertSpecificMessageWithDeletion :: Int -> Text -> Bool -> DBAction ()
+insertSpecificMessageWithDeletion id_ message isDeleted = \con ->
+  execute con "INSERT INTO SCRIB(ID, MESSAGE, DELETED) VALUES (?,?,?)" (id_, message, isDeleted)
+
+
 insertMessageNumbered :: Int -> DBAction ()
 insertMessageNumbered item = \con ->
   let message = "# Test message " <> (pack . show $ item) <> "\n This is only a test" :: Text

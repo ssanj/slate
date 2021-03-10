@@ -161,23 +161,42 @@ assertUpdateNote _ con = runAssertion $ do
    assertNoteInDB noteId noteMessage noteNewVersion con
 
 
--- deleteNote endpoing
+-- deleteNote endpoint
 
 unit_delete_note_no_matching_notes :: Assertion
 unit_delete_note_no_matching_notes = dbWithinTxTest noTestData assertDeleteNoteUnmatchedNote
 
 
 unit_delete_note_matching_notes :: Assertion
-unit_delete_note_matching_notes = dbWithinTxTest insertDSeedDataDeleteNotes assertDeleteNoteMatchedNote
+unit_delete_note_matching_notes = dbWithinTxTest undeletedNotes assertDeletedOnlyMatchedNote
 
-insertDSeedDataDeleteNotes :: InitialisedDB -> DBAction ((), SeededDB)
-insertDSeedDataDeleteNotes _ = \con -> runSeeding $ do
+
+unit_delete_note_matching_notes_already_deleted :: Assertion
+unit_delete_note_matching_notes_already_deleted =
+  dbWithinTxTest
+    deletedNotesWithOneDeleted
+    assertDidNotDeleteDeletedNote
+
+
+undeletedNotes :: InitialisedDB -> DBAction ((), SeededDB)
+undeletedNotes _ = \con -> runSeeding $ do
   traverse_
     (\(index, msg) -> insertSpecificMessage index msg con)
     [
       (1000, "# Note 1000")
     , (1001, "# Note 1001")
     , (1002, "# Note 1002")
+    ]
+
+
+deletedNotesWithOneDeleted :: InitialisedDB -> DBAction ((), SeededDB)
+deletedNotesWithOneDeleted _ = \con -> runSeeding $ do
+  traverse_
+    (\(index, msg, d) -> insertSpecificMessageWithDeletion index msg d con)
+    [
+      (1000, "# Note 1000", False)
+    , (1001, "# Note 1001", True)
+    , (1002, "# Note 1002", False)
     ]
 
 
@@ -193,8 +212,8 @@ assertDeleteNoteUnmatchedNote _ = \con -> runAssertion $ do
     ]
 
 
-assertDeleteNoteMatchedNote :: SeededDB -> DBAction ((), CleanUp)
-assertDeleteNoteMatchedNote _ = \con -> runAssertion $ do
+assertDeletedOnlyMatchedNote :: SeededDB -> DBAction ((), CleanUp)
+assertDeletedOnlyMatchedNote _ = \con -> runAssertion $ do
   app      <- route . deleteNoteEndpoint $ con
   response <- runSession (deleteRequest "/note/1001") app
 
@@ -208,6 +227,24 @@ assertDeleteNoteMatchedNote _ = \con -> runAssertion $ do
   assertNoteInDBIsDeleted 1000 False con
   assertNoteInDBIsDeleted 1001 True  con
   assertNoteInDBIsDeleted 1002 False con
+
+
+assertDidNotDeleteDeletedNote :: SeededDB -> DBAction ((), CleanUp)
+assertDidNotDeleteDeletedNote _ = \con -> runAssertion $ do
+  app      <- route . deleteNoteEndpoint $ con
+  response <- runSession (deleteRequest "/note/1001") app
+
+  traverse_
+    (response &)
+    [
+      assertResponseStatus H.status400
+    ]
+
+
+  assertNoteInDBIsDeleted 1000 False con
+  assertNoteInDBIsDeleted 1001 True  con
+  assertNoteInDBIsDeleted 1002 False con
+
 
 -- Helper functions
 
