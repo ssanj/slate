@@ -12,7 +12,7 @@ import SlateApi               (getIndexFile, getNotesEndpoint, performSearchEndp
 import Server                 (Except)
 import Network.Wai            (Application)
 import Data.Foldable          (traverse_)
-import Model                  (OutgoingNote(..))
+import Model                  (OutgoingNote(..), OutgoingError(..))
 import DB.DBNote              (mkNoteIdVersion, mkNoteId, mkNoteVersion, getNoteText, getInt, getBool)
 import Data.Function          ((&))
 
@@ -125,40 +125,53 @@ assertCreateNote _ con = runAssertion $ do
     ]
 
 
-unit_update_note :: Assertion
-unit_update_note = dbWithinTxTest singleNote assertUpdateNote
+unit_update_note_matching_note :: Assertion
+unit_update_note_matching_note = dbWithinTxTest simpleNotes assertUpdateNote
 
 
-singleNote :: InitialisedDB -> DBAction ((), SeededDB)
-singleNote _ = \con -> runSeeding $ do
-  insertSpecificMessage 1234 "Some message" con
+simpleNotes :: InitialisedDB -> DBAction ((), SeededDB)
+simpleNotes _ = \con -> runSeeding $ do
+  traverse_
+    (\(index, message) -> insertSpecificMessage index message con)
+    [
+      (1234, "Some message 1")
+    , (1235, "Some message 2")
+    , (1236, "Some message 3")
+    ]
 
 
 assertUpdateNote :: SeededDB -> DBAction ((), CleanUp)
 assertUpdateNote _ con = runAssertion $ do
-   app      <- route . createNoteEndpoint $ con
-   let noteId         = 1234 :: Int
-       noteMessage    = "Some other message" :: T.Text
-       noteVersion    = 1 :: Int
-       noteNewVersion = 2 :: Int
-       incoming       = A.encode $
-                          A.object [
-                            "noteText"    A..= noteMessage
-                          , "noteId"      A..= noteId
-                          , "noteVersion" A..= noteVersion
-                          ]
-   response <- runSession (postJSON "/note" incoming) app
+  app      <- route . createNoteEndpoint $ con
+  let noteId         = 1235 :: Int
+      newNoteMessage = "Some other message" :: T.Text
+      noteVersion    = 1 :: Int
+      noteNewVersion = 2 :: Int
+      incoming       = A.encode $
+                        A.object [
+                          "noteText"    A..= newNoteMessage
+                        , "noteId"      A..= noteId
+                        , "noteVersion" A..= noteVersion
+                        ]
 
-   let expectedNote = mkNoteIdVersion (mkNoteId noteId)  (mkNoteVersion noteNewVersion)
+  response <- runSession (postJSON "/note" incoming) app
 
-   traverse_
+  let expectedNote = mkNoteIdVersion (mkNoteId noteId)  (mkNoteVersion noteNewVersion)
+
+  traverse_
     (response &)
     [
       assertResponseStatus H.status200
     , assertResponseBody expectedNote
     ]
 
-   assertNoteInDB noteId noteMessage noteNewVersion con
+  traverse_
+    (\(nid, nmsg, nv) -> assertNoteInDB nid nmsg nv con)
+    [
+      (1234,   "Some message 1", noteVersion)
+    , (noteId, newNoteMessage,   noteNewVersion)
+    , (1236,   "Some message 3", noteVersion)
+    ]
 
 
 -- deleteNote endpoint
@@ -204,11 +217,13 @@ assertDeleteNoteUnmatchedNote :: SeededDB -> DBAction ((), CleanUp)
 assertDeleteNoteUnmatchedNote _ = \con -> runAssertion $ do
   app      <- route . deleteNoteEndpoint $ con
   response <- runSession (deleteRequest "/note/1000") app
+  let expectedBody = OutgoingError 1000 "The note specified could not be found"
 
   traverse_
     (response &)
     [
       assertResponseStatus H.status400
+    , assertResponseBody expectedBody
     ]
 
 
@@ -233,11 +248,13 @@ assertDidNotDeleteDeletedNote :: SeededDB -> DBAction ((), CleanUp)
 assertDidNotDeleteDeletedNote _ = \con -> runAssertion $ do
   app      <- route . deleteNoteEndpoint $ con
   response <- runSession (deleteRequest "/note/1001") app
+  let expectedBody = OutgoingError 1006 "The note supplied has already been deleted"
 
   traverse_
     (response &)
     [
       assertResponseStatus H.status400
+    , assertResponseBody expectedBody
     ]
 
 
@@ -260,10 +277,12 @@ assertResponseStatus :: H.Status -> SResponse -> Assertion
 assertResponseStatus status response = assertEq (simpleStatus response) status
 
 
+-- assert actual expected
 assertEq :: (Eq a, Show a) => a -> a -> Assertion
 assertEq = (@?=)
 
 
+-- assert expected actual
 assertEq' :: (Eq a, Show a) => a -> a -> Assertion
 assertEq' = (@=?)
 
