@@ -128,6 +128,9 @@ assertCreateNote _ con = runAssertion $ do
 unit_update_note_matching_note :: Assertion
 unit_update_note_matching_note = dbWithinTxTest simpleNotes assertUpdateNote
 
+unit_update_note_no_matching_note :: Assertion
+unit_update_note_no_matching_note = dbWithinTxTest simpleNotes assertUpdateUnmatchedNote
+
 
 simpleNotes :: InitialisedDB -> DBAction ((), SeededDB)
 simpleNotes _ = \con -> runSeeding $ do
@@ -171,6 +174,41 @@ assertUpdateNote _ con = runAssertion $ do
       (1234,   "Some message 1", noteVersion)
     , (noteId, newNoteMessage,   noteNewVersion)
     , (1236,   "Some message 3", noteVersion)
+    ]
+
+
+assertUpdateUnmatchedNote :: SeededDB -> DBAction ((), CleanUp)
+assertUpdateUnmatchedNote _ con = runAssertion $ do
+  app      <- route . createNoteEndpoint $ con
+  let noteId         = 6000 :: Int
+      newNoteMessage = "Some other message" :: T.Text
+      noteVersion    = 1 :: Int
+      incoming       = A.encode $
+                        A.object [
+                          "noteText"    A..= newNoteMessage
+                        , "noteId"      A..= noteId
+                        , "noteVersion" A..= noteVersion
+                        ]
+
+  response <- runSession (postJSON "/note" incoming) app
+
+  let expectedError = OutgoingError 1000 "The note specified could not be found"
+
+  traverse_
+    (response &)
+    [
+      assertResponseStatus H.status400
+    , assertResponseBody expectedError
+    ]
+
+
+  -- verify existing notes are unchanged
+  traverse_
+    (\(nid, nmsg, nv) -> assertNoteInDB nid nmsg nv con)
+    [
+      (1234, "Some message 1", noteVersion)
+    , (1235, "Some message 2", noteVersion)
+    , (1236, "Some message 3", noteVersion)
     ]
 
 
