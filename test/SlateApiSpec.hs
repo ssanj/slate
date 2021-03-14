@@ -128,6 +128,9 @@ assertCreateNote _ con = runAssertion $ do
 unit_update_note_matching_note :: Assertion
 unit_update_note_matching_note = dbWithinTxTest simpleNotes assertUpdateNote
 
+unit_update_note_matching_note_incorrect_version :: Assertion
+unit_update_note_matching_note_incorrect_version = dbWithinTxTest simpleNotes assertUpdateNoteUnmatchedVersion
+
 unit_update_note_no_matching_note :: Assertion
 unit_update_note_no_matching_note = dbWithinTxTest simpleNotes assertUpdateUnmatchedNote
 
@@ -209,6 +212,42 @@ assertUpdateUnmatchedNote _ con = runAssertion $ do
       (1234, "Some message 1", noteVersion)
     , (1235, "Some message 2", noteVersion)
     , (1236, "Some message 3", noteVersion)
+    ]
+
+
+assertUpdateNoteUnmatchedVersion :: SeededDB -> DBAction ((), CleanUp)
+assertUpdateNoteUnmatchedVersion _ con = runAssertion $ do
+  app      <- route . createNoteEndpoint $ con
+  let noteId          = 1234 :: Int
+      newNoteMessage  = "Some other message" :: T.Text
+      noteVersion     = 2 :: Int
+      originalVersion = 1 :: Int
+      incoming        = A.encode $
+                          A.object [
+                            "noteText"    A..= newNoteMessage
+                          , "noteId"      A..= noteId
+                          , "noteVersion" A..= noteVersion
+                          ]
+
+  response <- runSession (postJSON "/note" incoming) app
+
+  let expectedError = OutgoingError 1002 "There's a different version of this note on the server. Refresh and try again"
+
+  traverse_
+    (response &)
+    [
+      assertResponseStatus H.status400
+    , assertResponseBody expectedError
+    ]
+
+
+  -- verify existing notes are unchanged
+  traverse_
+    (\(nid, nmsg, nv) -> assertNoteInDB nid nmsg nv con)
+    [
+      (1234, "Some message 1", originalVersion)
+    , (1235, "Some message 2", originalVersion)
+    , (1236, "Some message 3", originalVersion)
     ]
 
 
