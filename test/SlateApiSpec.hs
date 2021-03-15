@@ -131,11 +131,14 @@ assertCreateNote _ con = runAssertion $ do
 unit_update_note_matching_note :: Assertion
 unit_update_note_matching_note = dbWithinTxTest simpleNotes assertUpdateNote
 
+
 unit_update_note_matching_note_incorrect_version :: Assertion
 unit_update_note_matching_note_incorrect_version = dbWithinTxTest simpleNotes assertUpdateNoteUnmatchedVersion
 
+
 unit_update_note_no_matching_note :: Assertion
 unit_update_note_no_matching_note = dbWithinTxTest simpleNotes assertUpdateUnmatchedNote
+
 
 unit_update_note_matching_note_illegal_incoming_version :: Assertion
 unit_update_note_matching_note_illegal_incoming_version = dbWithinTxTest simpleNotes assertUpdateIllegalVersion
