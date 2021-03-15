@@ -43,11 +43,12 @@ unit_notes :: Assertion
 unit_notes = dbWithinTxTest insertSeedDataSearchNotes assertGetNotes
 
 
-assertGetNotes :: SeededDB -> DBAction ((), CleanUp)
-assertGetNotes _ con = runAssertion $ do
-   app      <- route . getNotesEndpoint $ con
-   response <- runSession (getRequest "/notes") app
-   let expectedNotes :: [T.Text] =
+assertGetNotes :: SeededAssertion ()
+assertGetNotes = seededAssertion (\con ->
+  do
+    app      <- route . getNotesEndpoint $ con
+    response <- runSession (getRequest "/notes") app
+    let expectedNotes :: [T.Text] =
          [
            "# Some Note\nYolo"
          , "# Another note\nMore and more"
@@ -56,12 +57,13 @@ assertGetNotes _ con = runAssertion $ do
          , "# Whatever you like\nThis is a BloG article about ..."
          ]
 
-   traverse_
-    (response &)
-    [
-      assertResponseStatus H.status200
-    , assertResponseBodyCollection expectedNotes _outgoingNoteText
-    ]
+    traverse_
+      (response &)
+      [
+        assertResponseStatus H.status200
+      , assertResponseBodyCollection expectedNotes _outgoingNoteText
+      ]
+  )
 
 
 insertSeedDataSearchNotes :: InitialisedDB -> DBAction ((), SeededDB)
@@ -84,23 +86,24 @@ unit_perform_search :: Assertion
 unit_perform_search = dbWithinTxTest insertSeedDataSearchNotes assertSearchNotes
 
 
-assertSearchNotes :: SeededDB -> DBAction ((), CleanUp)
-assertSearchNotes _ con = runAssertion $ do
-   app      <- route . performSearchEndpoint $ con
-   response <- runSession (getRequest "/search?q=random") app
+assertSearchNotes :: SeededAssertion ()
+assertSearchNotes = seededAssertion (\con ->
+  do
+    app      <- route . performSearchEndpoint $ con
+    response <- runSession (getRequest "/search?q=random") app
 
-   let expectedNotes :: [T.Text] =
+    let expectedNotes :: [T.Text] =
          [
            "# Random Title\nThis is a blog article about ..."
          ]
 
-   traverse_
-    (response & )
-    [
-      assertResponseStatus H.status200
-    , assertResponseBodyCollection expectedNotes _outgoingNoteText
-    ]
-
+    traverse_
+      (response & )
+      [
+        assertResponseStatus H.status200
+      , assertResponseBodyCollection expectedNotes _outgoingNoteText
+      ]
+  )
 
 
 
@@ -146,109 +149,115 @@ simpleNotes _ = \con -> runSeeding $ do
     ]
 
 
-assertUpdateNote :: SeededDB -> DBAction ((), CleanUp)
-assertUpdateNote _ con = runAssertion $ do
-  app      <- route . createNoteEndpoint $ con
-  let noteId         = 1235 :: Int
-      newNoteMessage = "Some other message" :: T.Text
-      noteVersion    = 1 :: Int
-      noteNewVersion = 2 :: Int
-      incoming       = A.encode $
-                        A.object [
-                          "noteText"    A..= newNoteMessage
-                        , "noteId"      A..= noteId
-                        , "noteVersion" A..= noteVersion
-                        ]
-
-  response <- runSession (postJSON "/note" incoming) app
-
-  let expectedNote = mkNoteIdVersion (mkNoteId noteId)  (mkNoteVersion noteNewVersion)
-
-  traverse_
-    (response &)
-    [
-      assertResponseStatus H.status200
-    , assertResponseBody expectedNote
-    ]
-
-  traverse_
-    (\(nid, nmsg, nv) -> assertNoteInDB nid nmsg nv con)
-    [
-      (1234,   "Some message 1", noteVersion)
-    , (noteId, newNoteMessage,   noteNewVersion)
-    , (1236,   "Some message 3", noteVersion)
-    ]
-
-
-assertUpdateUnmatchedNote :: SeededDB -> DBAction ((), CleanUp)
-assertUpdateUnmatchedNote _ con = runAssertion $ do
-  app      <- route . createNoteEndpoint $ con
-  let noteId         = 6000 :: Int
-      newNoteMessage = "Some other message" :: T.Text
-      noteVersion    = 1 :: Int
-      incoming       = A.encode $
-                        A.object [
-                          "noteText"    A..= newNoteMessage
-                        , "noteId"      A..= noteId
-                        , "noteVersion" A..= noteVersion
-                        ]
-
-  response <- runSession (postJSON "/note" incoming) app
-
-  let expectedError = OutgoingError 1000 "The note specified could not be found"
-
-  traverse_
-    (response &)
-    [
-      assertResponseStatus H.status400
-    , assertResponseBody expectedError
-    ]
-
-
-  -- verify existing notes are unchanged
-  traverse_
-    (\(nid, nmsg, nv) -> assertNoteInDB nid nmsg nv con)
-    [
-      (1234, "Some message 1", noteVersion)
-    , (1235, "Some message 2", noteVersion)
-    , (1236, "Some message 3", noteVersion)
-    ]
-
-
-assertUpdateNoteUnmatchedVersion :: SeededDB -> DBAction ((), CleanUp)
-assertUpdateNoteUnmatchedVersion _ con = runAssertion $ do
-  app      <- route . createNoteEndpoint $ con
-  let noteId          = 1234 :: Int
-      newNoteMessage  = "Some other message" :: T.Text
-      noteVersion     = 2 :: Int
-      originalVersion = 1 :: Int
-      incoming        = A.encode $
+assertUpdateNote :: SeededAssertion ()
+assertUpdateNote = seededAssertion (\con ->
+  do
+    app      <- route . createNoteEndpoint $ con
+    let noteId         = 1235 :: Int
+        newNoteMessage = "Some other message" :: T.Text
+        noteVersion    = 1 :: Int
+        noteNewVersion = 2 :: Int
+        incoming       = A.encode $
                           A.object [
                             "noteText"    A..= newNoteMessage
                           , "noteId"      A..= noteId
                           , "noteVersion" A..= noteVersion
                           ]
 
-  response <- runSession (postJSON "/note" incoming) app
+    response <- runSession (postJSON "/note" incoming) app
 
-  let expectedError = OutgoingError 1002 "There's a different version of this note on the server. Refresh and try again"
+    let expectedNote = mkNoteIdVersion (mkNoteId noteId)  (mkNoteVersion noteNewVersion)
 
-  traverse_
-    (response &)
-    [
-      assertResponseStatus H.status400
-    , assertResponseBody expectedError
-    ]
+    traverse_
+      (response &)
+      [
+        assertResponseStatus H.status200
+      , assertResponseBody expectedNote
+      ]
+
+    traverse_
+      (\(nid, nmsg, nv) -> assertNoteInDB nid nmsg nv con)
+      [
+        (1234,   "Some message 1", noteVersion)
+      , (noteId, newNoteMessage,   noteNewVersion)
+      , (1236,   "Some message 3", noteVersion)
+      ]
+  )
 
 
-  -- verify existing notes are unchanged
-  traverse_
-    (\(nid, nmsg, nv) -> assertNoteInDB nid nmsg nv con)
-    [
-      (1234, "Some message 1", originalVersion)
-    , (1235, "Some message 2", originalVersion)
-    , (1236, "Some message 3", originalVersion)
-    ]
+assertUpdateUnmatchedNote :: SeededAssertion ()
+assertUpdateUnmatchedNote = seededAssertion $ (\con ->
+  do
+    app      <- route . createNoteEndpoint $ con
+    let noteId         = 6000 :: Int
+        newNoteMessage = "Some other message" :: T.Text
+        noteVersion    = 1 :: Int
+        incoming       = A.encode $
+                          A.object [
+                            "noteText"    A..= newNoteMessage
+                          , "noteId"      A..= noteId
+                          , "noteVersion" A..= noteVersion
+                          ]
+
+    response <- runSession (postJSON "/note" incoming) app
+
+    let expectedError = OutgoingError 1000 "The note specified could not be found"
+
+    traverse_
+      (response &)
+      [
+        assertResponseStatus H.status400
+      , assertResponseBody expectedError
+      ]
+
+
+    -- verify existing notes are unchanged
+    traverse_
+      (\(nid, nmsg, nv) -> assertNoteInDB nid nmsg nv con)
+      [
+        (1234, "Some message 1", noteVersion)
+      , (1235, "Some message 2", noteVersion)
+      , (1236, "Some message 3", noteVersion)
+      ]
+  )
+
+
+assertUpdateNoteUnmatchedVersion :: SeededAssertion ()
+assertUpdateNoteUnmatchedVersion = seededAssertion (\con ->
+  do
+    app      <- route . createNoteEndpoint $ con
+    let noteId          = 1234 :: Int
+        newNoteMessage  = "Some other message" :: T.Text
+        noteVersion     = 2 :: Int
+        originalVersion = 1 :: Int
+        incoming        = A.encode $
+                            A.object [
+                              "noteText"    A..= newNoteMessage
+                            , "noteId"      A..= noteId
+                            , "noteVersion" A..= noteVersion
+                            ]
+
+    response <- runSession (postJSON "/note" incoming) app
+
+    let expectedError = OutgoingError 1002 "There's a different version of this note on the server. Refresh and try again"
+
+    traverse_
+      (response &)
+      [
+        assertResponseStatus H.status400
+      , assertResponseBody expectedError
+      ]
+
+
+    -- verify existing notes are unchanged
+    traverse_
+      (\(nid, nmsg, nv) -> assertNoteInDB nid nmsg nv con)
+      [
+        (1234, "Some message 1", originalVersion)
+      , (1235, "Some message 2", originalVersion)
+      , (1236, "Some message 3", originalVersion)
+      ]
+  )
 
 
 -- deleteNote endpoint
@@ -290,54 +299,60 @@ deletedNotesWithOneDeleted _ = \con -> runSeeding $ do
     ]
 
 
-assertDeleteNoteUnmatchedNote :: SeededDB -> DBAction ((), CleanUp)
-assertDeleteNoteUnmatchedNote _ = \con -> runAssertion $ do
-  app      <- route . deleteNoteEndpoint $ con
-  response <- runSession (deleteRequest "/note/1000") app
-  let expectedBody = OutgoingError 1000 "The note specified could not be found"
+assertDeleteNoteUnmatchedNote :: SeededAssertion ()
+assertDeleteNoteUnmatchedNote = seededAssertion (\con ->
+  do
+    app      <- route . deleteNoteEndpoint $ con
+    response <- runSession (deleteRequest "/note/1000") app
+    let expectedBody = OutgoingError 1000 "The note specified could not be found"
 
-  traverse_
-    (response &)
-    [
-      assertResponseStatus H.status400
-    , assertResponseBody expectedBody
-    ]
-
-
-assertDeletedOnlyMatchedNote :: SeededDB -> DBAction ((), CleanUp)
-assertDeletedOnlyMatchedNote _ = \con -> runAssertion $ do
-  app      <- route . deleteNoteEndpoint $ con
-  response <- runSession (deleteRequest "/note/1001") app
-
-  traverse_
-    (response &)
-    [
-      assertResponseStatus H.status204
-    ]
+    traverse_
+      (response &)
+      [
+        assertResponseStatus H.status400
+      , assertResponseBody expectedBody
+      ]
+  )
 
 
-  assertNoteInDBIsDeleted 1000 False con
-  assertNoteInDBIsDeleted 1001 True  con
-  assertNoteInDBIsDeleted 1002 False con
+assertDeletedOnlyMatchedNote :: SeededAssertion ()
+assertDeletedOnlyMatchedNote = seededAssertion (\con ->
+  do
+    app      <- route . deleteNoteEndpoint $ con
+    response <- runSession (deleteRequest "/note/1001") app
+
+    traverse_
+      (response &)
+      [
+        assertResponseStatus H.status204
+      ]
 
 
-assertDidNotDeleteDeletedNote :: SeededDB -> DBAction ((), CleanUp)
-assertDidNotDeleteDeletedNote _ = \con -> runAssertion $ do
-  app      <- route . deleteNoteEndpoint $ con
-  response <- runSession (deleteRequest "/note/1001") app
-  let expectedBody = OutgoingError 1006 "The note supplied has already been deleted"
-
-  traverse_
-    (response &)
-    [
-      assertResponseStatus H.status400
-    , assertResponseBody expectedBody
-    ]
+    assertNoteInDBIsDeleted 1000 False con
+    assertNoteInDBIsDeleted 1001 True  con
+    assertNoteInDBIsDeleted 1002 False con
+  )
 
 
-  assertNoteInDBIsDeleted 1000 False con
-  assertNoteInDBIsDeleted 1001 True  con
-  assertNoteInDBIsDeleted 1002 False con
+assertDidNotDeleteDeletedNote :: SeededAssertion ()
+assertDidNotDeleteDeletedNote = seededAssertion (\con ->
+  do
+    app      <- route . deleteNoteEndpoint $ con
+    response <- runSession (deleteRequest "/note/1001") app
+    let expectedBody = OutgoingError 1006 "The note supplied has already been deleted"
+
+    traverse_
+      (response &)
+      [
+        assertResponseStatus H.status400
+      , assertResponseBody expectedBody
+      ]
+
+
+    assertNoteInDBIsDeleted 1000 False con
+    assertNoteInDBIsDeleted 1001 True  con
+    assertNoteInDBIsDeleted 1002 False con
+  )
 
 
 -- Helper functions

@@ -24,6 +24,8 @@ type DBName = Tagged DBNameTag String
 data InitialisedDB = InitialisedDB
 data SeededDB = SeededDB
 
+type SeededAssertion a = SeededDB -> DBAction (a, CleanUp)
+
 data CleanUp = AssertionRun
              | Initialise
 
@@ -31,7 +33,7 @@ data DBTest a =
   DBTest {
     init     :: DBAction ((), InitialisedDB)
   , seedData :: InitialisedDB -> DBAction ((), SeededDB)
-  , dbSpec :: SeededDB -> DBAction (a, CleanUp)
+  , dbSpec :: SeededAssertion a
   , cleanUp  :: CleanUp -> DBAction ()
   }
 
@@ -152,11 +154,11 @@ runAssertionSuccess :: IO ((), CleanUp)
 runAssertionSuccess = pure ((), AssertionRun)
 
 
-dbNoteTest :: (InitialisedDB -> DBAction ((), SeededDB)) -> (SeededDB -> DBAction ((), CleanUp)) -> Assertion
+dbNoteTest :: (InitialisedDB -> DBAction ((), SeededDB)) -> SeededAssertion () -> Assertion
 dbNoteTest seedF assertF = dbTest_ testDatabaseName $ DBTest createSchema seedF assertF deleteSchema
 
 
-dbWithinTxTest :: (InitialisedDB -> DBAction ((), SeededDB)) -> (SeededDB -> DBAction (a, CleanUp)) -> IO a
+dbWithinTxTest :: (InitialisedDB -> DBAction ((), SeededDB)) -> SeededAssertion a -> IO a
 dbWithinTxTest seedF action = dbTestTx testDatabaseName $ DBTest createSchema seedF action deleteSchema
 
 
@@ -168,3 +170,7 @@ runSeeding seedAction = ((, SeededDB)) <$> seedAction
 
 noTestData :: InitialisedDB -> DBAction ((), SeededDB)
 noTestData _ = \_ ->  runSeeding $ pure ()
+
+
+seededAssertion :: DBAction a -> SeededAssertion a
+seededAssertion action _ = runAssertion . action
