@@ -9,6 +9,7 @@ module Model
 
           IncomingNote(..)
        ,  NoteIdAndVersion(..)
+       ,  OnlyNoteId(..)
        ,  OutgoingNote(..)
        ,  ApiKey(..)
        ,  DBError(..)
@@ -42,7 +43,12 @@ data NoteIdAndVersion =
   NoteIdAndVersion {
     _noteIdAndVersionNoteId      :: Int
   , _noteIdAndVersionNoteVersion :: Int
-}  deriving stock (Generic, Eq, Show)
+  } deriving stock (Generic, Eq, Show)
+
+data OnlyNoteId =
+  OnlyNoteId {
+    _onlyNoteIdNoteId :: Int
+  } deriving stock (Generic, Eq, Show)
 
 data OutgoingNote =
   OutgoingNote {
@@ -134,6 +140,9 @@ outgoingJsonOptions = aesonDrop 9 camelCase
 noteAndVersionJsonOptions :: Options
 noteAndVersionJsonOptions = aesonDrop 17 camelCase
 
+onlyNoteJsonOptions :: Options
+onlyNoteJsonOptions = aesonDrop 10 camelCase
+
 
 instance ToJSON OutgoingNote where
    toEncoding = genericToEncoding outgoingJsonOptions
@@ -168,6 +177,12 @@ instance ToJSON OutgoingError where
 
 instance FromJSON OutgoingError where
    parseJSON = genericParseJSON outgoingJsonOptions
+
+instance ToJSON OnlyNoteId where
+   toEncoding = genericToEncoding onlyNoteJsonOptions
+
+instance FromJSON OnlyNoteId where
+   parseJSON = genericParseJSON onlyNoteJsonOptions
 
 
 -- UTIL

@@ -12,7 +12,7 @@ import SlateApi               (getIndexFile, getNotesEndpoint, performSearchEndp
 import Server                 (Except)
 import Network.Wai            (Application)
 import Data.Foldable          (traverse_)
-import Model                  (OutgoingNote(..), OutgoingError(..))
+import Model                  (OutgoingNote(..), OutgoingError(..), OnlyNoteId(..))
 import DB.DBNote              (mkNoteIdVersion, mkNoteId, mkNoteVersion, getNoteText, getInt, getBool)
 import Data.Function          ((&))
 
@@ -364,11 +364,13 @@ assertDeletedOnlyMatchedNote = seededAssertion (\con ->
   do
     app      <- route . deleteNoteEndpoint $ con
     response <- runSession (deleteRequest "/note/1001") app
+    let expectedBody = OnlyNoteId 1001
 
     traverse_
       (response &)
       [
         assertResponseStatus H.status204
+      , assertResponseBody expectedBody
       ]
 
 

@@ -130,8 +130,8 @@ deleteNoteEndpoint con =
     noteId  <- mkNoteId <$> ST.param "noteId"
     deleteE <- txSlateAction (deleteNote noteId) con
     case deleteE of
-      Left errorMessage -> withError errorMessage status400
-      Right _           -> ST.status noContent204
+      Left errorMessage  -> withError errorMessage status400
+      (Right onlyNoteId) -> jsonResponse noContent204 onlyNoteId
 
 
 txSlateActionWithJson :: ToJSON a => (Connection -> IO a) -> Connection -> SlateAction IO ()
@@ -199,5 +199,5 @@ retrieveTopNotes :: Connection -> IO [OutgoingNote]
 retrieveTopNotes con = fmap (fmap getOutgoingNote) (fetchNotes maxFetchSize con)
 
 
-deleteNote :: NoteId -> Connection -> IO (Either DBError ())
+deleteNote :: NoteId -> Connection -> IO (Either DBError OnlyNoteId)
 deleteNote = deactivateNote

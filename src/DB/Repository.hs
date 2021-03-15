@@ -112,12 +112,12 @@ searchNotes :: T.Text -> Connection -> IO [DBNote]
 searchNotes searchCriteria con = query con "SELECT ID, MESSAGE, VERSION FROM SCRIB WHERE MESSAGE LIKE (?) AND DELETED = 0 ORDER BY UPDATED_AT DESC" (Only ("%" <> searchCriteria <> "%")) :: IO [DBNote]
 
 
-deactivateNote :: NoteId -> Connection -> IO (Either DBError ())
+deactivateNote :: NoteId -> Connection -> IO (Either DBError OnlyNoteId)
 deactivateNote noteId con = do
     maybeDbIdAndDeleteFlag <- getNoteIdAndDeleteStatusFromDB noteId con
     let deleteAction = determineDelete noteId maybeDbIdAndDeleteFlag
     case deleteAction of
-      DoDelete _           -> Right <$> deleteNote noteId con
+      DoDelete _           -> (Right . OnlyNoteId . getInt $ noteId) <$ deleteNote noteId con
       NoteNotFound _       -> pure . Left . ItemNotFound . getInt $ noteId
       NoteAlreadyDeleted _ -> pure . Left . DeletingDeletedNote . getInt $ noteId
 
