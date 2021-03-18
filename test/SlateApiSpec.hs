@@ -44,11 +44,14 @@ unit_root = do
   assertResponseStatus H.status200 response
 
 
+-- Middleware
+
+
 unit_gzip :: Assertion
 unit_gzip = do
-  let appLayers = (slateMiddleware [GZipping, StaticFileServing] undefined) <> [getIndexFile]
+  let appLayers = (slateMiddleware [GZipping, StaticFileServing] undefined) <> [testEndpoint]
   app      <- route $ sequence_ appLayers
-  response <- runSession (getRequestWithHeaders "/index.html" [(H.hAcceptEncoding, "gzip")]) app
+  response <- runSession (getRequestWithHeaders "/test" [(H.hAcceptEncoding, "gzip")]) app
 
   traverse_
     (response &)
@@ -76,6 +79,19 @@ unit_api_key_supplied = do
   let appLayers = (slateMiddleware [ApiKeyRequiring] (ApiKey "QWERTY098")) <> [testEndpoint]
   app      <- route $ sequence_ appLayers
   response <- runSession (getRequestWithHeaders "/test" [("x-api-key", "QWERTY098")]) app
+
+  traverse_
+    (response &)
+    [
+      assertResponseStatus H.status200
+    ]
+
+
+unit_api_key_is_not_required_for_home_page :: Assertion
+unit_api_key_is_not_required_for_home_page = do
+  let appLayers = (slateMiddleware [ApiKeyRequiring] (ApiKey "QWERTY098")) <> [getIndexFile]
+  app      <- route $ sequence_ appLayers
+  response <- runSession (getRequestWithHeaders "/" []) app
 
   traverse_
     (response &)
