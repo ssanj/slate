@@ -9,7 +9,7 @@ import Network.Wai.Test
 
 import Test.Tasty.HUnit       (Assertion, assertFailure, assertBool, (@?=), (@=?))
 import SlateApi               (getIndexFile, getNotesEndpoint, performSearchEndpoint, createNoteEndpoint, deleteNoteEndpoint, slateMiddleware)
-import Server                 (Except)
+import Server                 (Except, SlateScottyAction)
 import Network.Wai            (Application)
 import Data.Foldable          (traverse_, find)
 import Model                  (OutgoingNote(..), OutgoingError(..), OnlyNoteId(..), MiddlewareType(..), ApiKey(..), showt)
@@ -29,6 +29,9 @@ import qualified Data.Text.Encoding        as TE
 
 import Scaffold
 
+
+testEndpoint :: SlateScottyAction
+testEndpoint = ST.get "/test" $ do ST.status H.status200
 
 --- getIndexFile
 
@@ -57,9 +60,9 @@ unit_gzip = do
 
 unit_api_key_required :: Assertion
 unit_api_key_required = do
-  let appLayers = (slateMiddleware [ApiKeyRequiring] (ApiKey "QWERTY098")) <> [getNotesEndpoint undefined]
+  let appLayers = (slateMiddleware [ApiKeyRequiring] (ApiKey "QWERTY098")) <> [testEndpoint]
   app      <- route $ sequence_ appLayers
-  response <- runSession (getRequestWithHeaders "/notes" [(H.hAcceptEncoding, "gzip")]) app
+  response <- runSession (getRequestWithHeaders "/test" []) app
 
   traverse_
     (response &)
