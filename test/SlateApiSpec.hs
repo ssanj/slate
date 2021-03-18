@@ -8,26 +8,30 @@ module SlateApiSpec where
 import Network.Wai.Test
 
 import Test.Tasty.HUnit       (Assertion, assertFailure, assertBool, (@?=), (@=?))
-import SlateApi               (getIndexFile, getNotesEndpoint, performSearchEndpoint, createNoteEndpoint, deleteNoteEndpoint)
+import SlateApi               (getIndexFile, getNotesEndpoint, performSearchEndpoint, createNoteEndpoint, deleteNoteEndpoint, slateMiddleware)
 import Server                 (Except)
 import Network.Wai            (Application)
-import Data.Foldable          (traverse_)
-import Model                  (OutgoingNote(..), OutgoingError(..), OnlyNoteId(..))
+import Data.Foldable          (traverse_, find)
+import Model                  (OutgoingNote(..), OutgoingError(..), OnlyNoteId(..), MiddlewareType(..), ApiKey(..), showt)
 import DB.DBNote              (mkNoteIdVersion, mkNoteId, mkNoteVersion, getNoteText, getInt, getBool)
 import Data.Function          ((&))
+import Control.Monad          (void)
 
-import qualified Web.Scotty.Trans     as ST
-import qualified Network.Wai          as W
-import qualified Network.HTTP.Types   as H
-import qualified Data.ByteString      as B
-import qualified Data.ByteString.Lazy as LB
-import qualified Data.Aeson           as A
-import qualified Data.Text            as T
+import qualified Web.Scotty.Trans          as ST
+import qualified Network.Wai               as W
+import qualified Network.HTTP.Types        as H
+import qualified Network.HTTP.Types.Header as H
+import qualified Data.ByteString           as B
+import qualified Data.ByteString.Lazy      as LB
+import qualified Data.Aeson                as A
+import qualified Data.Text                 as T
+import qualified Data.Text.Encoding        as TE
 
 import Scaffold
 
 
 --- getIndexFile
+
 
 unit_root :: Assertion
 unit_root = do
@@ -37,10 +41,38 @@ unit_root = do
   assertResponseStatus H.status200 response
 
 
+unit_gzip :: Assertion
+unit_gzip = do
+  let appLayers = (slateMiddleware [GZipping, StaticFileServing] undefined) <> [getIndexFile]
+  app      <- route $ sequence_ appLayers
+  response <- runSession (getRequestWithHeaders "/index.html" [(H.hAcceptEncoding, "gzip")]) app
+
+  traverse_
+    (response &)
+    [
+      assertResponseStatus H.status200
+    , assertResponseHeader (H.hContentEncoding, "gzip")
+    ]
+
+
+unit_api_key_required :: Assertion
+unit_api_key_required = do
+  let appLayers = (slateMiddleware [ApiKeyRequiring] (ApiKey "QWERTY098")) <> [getNotesEndpoint undefined]
+  app      <- route $ sequence_ appLayers
+  response <- runSession (getRequestWithHeaders "/notes" [(H.hAcceptEncoding, "gzip")]) app
+
+  traverse_
+    (response &)
+    [
+      assertResponseStatus H.status401
+    ]
+
+
 --- getNotesEndpoint
 
 unit_notes :: Assertion
 unit_notes = dbWithinTxTest insertSeedDataSearchNotes assertGetNotes
+
 
 
 assertGetNotes :: SeededAssertion ()
@@ -414,6 +446,25 @@ assertResponseBody expected response =
 assertResponseStatus :: H.Status -> SResponse -> Assertion
 assertResponseStatus status response = assertEq (simpleStatus response) status
 
+assertResponseHeader :: (H.HeaderName, T.Text) -> SResponse -> Assertion
+assertResponseHeader (headerName, headerValue) response =
+  let headers = simpleHeaders response
+      resultMaybe = find (\(hn, v) -> hn == headerName  && (bsToText v) == headerValue) headers
+  in maybe (assertFailure . T.unpack . getFailureMessage $ headers) (void . pure) resultMaybe
+      where getFailureMessage :: [H.Header] ->  T.Text
+            getFailureMessage headers =
+              "Could not find header: " <>  getSuppliedHeaderStr <> ", in headers: [" <> getHeadersListStr headers <> "]"
+
+            getSuppliedHeaderStr :: T.Text
+            getSuppliedHeaderStr = "(" <> (showt headerName) <> ":" <> headerValue <> ")"
+
+            getHeadersListStr :: [H.Header] -> T.Text
+            getHeadersListStr = T.intercalate "," . fmap showt
+
+
+bsToText :: B.ByteString -> T.Text
+bsToText = TE.decodeUtf8
+
 
 -- assert actual expected
 assertEq :: (Eq a, Show a) => a -> a -> Assertion
@@ -434,6 +485,7 @@ assertNoteInDB noteId noteMessage noteVersion con = do
           (getInt dbId)           @?= noteId
           (getNoteText dbMessage) @?= noteMessage
           (getInt dbVersion)      @?= noteVersion
+
 
 assertNoteInDBIsDeleted :: Int -> Bool -> DBAction ()
 assertNoteInDBIsDeleted noteId deletedFlag con = do
@@ -467,6 +519,12 @@ assertCollectionResults expectedItems actualItems = do
 
 getRequest :: B.ByteString -> Session SResponse
 getRequest = request . setPath defaultRequest
+
+
+getRequestWithHeaders :: B.ByteString -> H.RequestHeaders -> Session SResponse
+getRequestWithHeaders path headers =
+  request $ setPath defaultRequest { W.requestHeaders = headers } path
+
 
 deleteRequest :: B.ByteString -> Session SResponse
 deleteRequest = request . setPath defaultRequest { W.requestMethod = H.methodDelete }

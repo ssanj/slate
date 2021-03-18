@@ -12,6 +12,7 @@ module SlateApi
        , performSearchEndpoint
        , createNoteEndpoint
        , deleteNoteEndpoint
+       , slateMiddleware
        ) where
 
 import Server
