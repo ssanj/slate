@@ -70,6 +70,7 @@ unit_api_key_required = do
       assertResponseStatus H.status401
     ]
 
+
 unit_api_key_supplied :: Assertion
 unit_api_key_supplied = do
   let appLayers = (slateMiddleware [ApiKeyRequiring] (ApiKey "QWERTY098")) <> [testEndpoint]
@@ -82,6 +83,18 @@ unit_api_key_supplied = do
       assertResponseStatus H.status200
     ]
 
+
+unit_api_key_invalid_supplied :: Assertion
+unit_api_key_invalid_supplied = do
+  let appLayers = (slateMiddleware [ApiKeyRequiring] (ApiKey "QWERTY098")) <> [testEndpoint]
+  app      <- route $ sequence_ appLayers
+  response <- runSession (getRequestWithHeaders "/test" [("x-api-key", "098QWERTY")]) app
+
+  traverse_
+    (response &)
+    [
+      assertResponseStatus H.status401
+    ]
 
 --- getNotesEndpoint
 
