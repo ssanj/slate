@@ -31,7 +31,7 @@ import Scaffold
 
 
 testEndpoint :: SlateScottyAction
-testEndpoint = ST.get "/test" $ do ST.status H.status200
+testEndpoint = ST.get "/test" $ do ST.status H.status200 >> ST.json ("testing" :: T.Text)
 
 --- getIndexFile
 
@@ -68,6 +68,18 @@ unit_api_key_required = do
     (response &)
     [
       assertResponseStatus H.status401
+    ]
+
+unit_api_key_supplied :: Assertion
+unit_api_key_supplied = do
+  let appLayers = (slateMiddleware [ApiKeyRequiring] (ApiKey "QWERTY098")) <> [testEndpoint]
+  app      <- route $ sequence_ appLayers
+  response <- runSession (getRequestWithHeaders "/test" [("x-api-key", "QWERTY098")]) app
+
+  traverse_
+    (response &)
+    [
+      assertResponseStatus H.status200
     ]
 
 
