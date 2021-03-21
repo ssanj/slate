@@ -33,6 +33,7 @@ import Scaffold
 testEndpoint :: SlateScottyAction
 testEndpoint = ST.get "/test" $ do ST.status H.status200 >> ST.json ("testing" :: T.Text)
 
+
 --- getIndexFile
 
 
@@ -112,11 +113,12 @@ unit_api_key_invalid_supplied = do
       assertResponseStatus H.status401
     ]
 
+
 --- getNotesEndpoint
+
 
 unit_notes :: Assertion
 unit_notes = dbWithinTxTest insertSeedDataSearchNotes assertGetNotes
-
 
 
 assertGetNotes :: SeededAssertion ()
