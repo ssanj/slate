@@ -12,6 +12,7 @@ module Model
        ,  OnlyNoteId(..)
        ,  OutgoingNote(..)
        ,  ApiKey(..)
+       ,  StaticFileDir(..)
        ,  DBError(..)
        ,  OutgoingError(..)
        ,  SlateConfig(..)
@@ -29,9 +30,9 @@ module Model
 
 import GHC.Generics
 import Data.Aeson
-import Data.Aeson.Types (Parser, parseFail)
-import Data.Aeson.Text (encodeToLazyText)
-
+import Data.Aeson.Types  (Parser, parseFail)
+import Data.Aeson.Text   (encodeToLazyText)
+import Data.String       (IsString(..))
 import Data.Aeson.Casing (aesonDrop, camelCase)
 
 import qualified Data.Text        as T
@@ -71,6 +72,14 @@ data OutgoingError =
 
 newtype ApiKey = ApiKey { _apiKey :: T.Text } deriving stock (Eq, Show)
 
+
+newtype StaticFileDir = StaticFileDir { _fileDir :: T.Text } deriving stock (Eq, Show)
+
+
+instance IsString StaticFileDir where
+  fromString = StaticFileDir . T.pack
+
+
 data SlateDatabaseConfig =
   SlateDatabaseConfig {
     _slateDatabaseConfigDatabaseLocation :: T.Text
@@ -80,8 +89,9 @@ data SlateConfig =
   SlateConfig {
     _slateConfigApiKey :: ApiKey
   , _slateConfigDatabaseConfig :: SlateDatabaseConfig
-  , _slateConfigMiddleware :: [MiddlewareType]
-  , _slateConfigErrorHandler :: Maybe SlateErrorHandler
+  , _slateConfigMiddleware     :: [MiddlewareType]
+  , _slateConfigErrorHandler   :: Maybe SlateErrorHandler
+  , _slateConfigStaticFileDir  :: StaticFileDir
   }
 
 data SlateErrorHandler = SlateErrorHandler

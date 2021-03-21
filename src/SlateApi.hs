@@ -68,13 +68,13 @@ createConnectionPool dbConfig =
 
 
 setupScotty :: SlateConfig -> Connection -> IO ()
-setupScotty (SlateConfig apiKey _ middlewareConfig errorHandler) con =
+setupScotty (SlateConfig apiKey _ middlewareConfig errorHandler staticDir) con =
   ST.scottyOptsT (serverOptions 3000) id $ do
-    sequence_ (slateMiddleware middlewareConfig apiKey)
+    sequence_ (slateMiddleware middlewareConfig apiKey staticDir)
 
     sequence_ (slateErrorHandlers errorHandler)
 
-    getIndexFile
+    getIndexFile staticDir
 
     databaseActions con
 
@@ -87,12 +87,12 @@ databaseActions con = do
     deleteNoteEndpoint    con
 
 
-slateMiddleware :: [MiddlewareType] -> ApiKey -> [SlateScottyAction]
-slateMiddleware [] _                        = []
-slateMiddleware (GZipping:rest) apiKey             = ST.middleware zipMiddleware                  : slateMiddleware rest apiKey
-slateMiddleware (StaticFileServing:rest) apiKey    = ST.middleware staticFileMiddleware           : slateMiddleware rest apiKey
-slateMiddleware (Logging:rest) apiKey              = ST.middleware loggingMiddleware              : slateMiddleware rest apiKey
-slateMiddleware (ApiKeyRequiring:rest) apiKey      = ST.middleware (checkApiKeyMiddleware apiKey) : slateMiddleware rest apiKey
+slateMiddleware :: [MiddlewareType] -> ApiKey -> StaticFileDir -> [SlateScottyAction]
+slateMiddleware [] _  _                               = []
+slateMiddleware (GZipping:rest) apiKey sfDir          = ST.middleware zipMiddleware                  : slateMiddleware rest apiKey sfDir
+slateMiddleware (StaticFileServing:rest) apiKey sfDir = ST.middleware (staticFileMiddleware sfDir)   : slateMiddleware rest apiKey sfDir
+slateMiddleware (Logging:rest) apiKey sfDir           = ST.middleware loggingMiddleware              : slateMiddleware rest apiKey sfDir
+slateMiddleware (ApiKeyRequiring:rest) apiKey sfDir   = ST.middleware (checkApiKeyMiddleware apiKey) : slateMiddleware rest apiKey sfDir
 
 
 slateErrorHandlers :: Maybe SlateErrorHandler -> [SlateScottyAction]
@@ -100,8 +100,8 @@ slateErrorHandlers Nothing  = []
 slateErrorHandlers (Just _) = pure $ ST.defaultHandler handleEx
 
 
-getIndexFile :: SlateScottyAction
-getIndexFile = ST.get "/" $ ST.file "./static/index.html"
+getIndexFile :: StaticFileDir -> SlateScottyAction
+getIndexFile rootDir = ST.get "/" $ ST.file $ (T.unpack $ _fileDir rootDir) <> "/index.html"
 
 
 getNotesEndpoint :: Connection -> SlateScottyAction

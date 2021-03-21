@@ -34,12 +34,16 @@ testEndpoint :: SlateScottyAction
 testEndpoint = ST.get "/test" $ do ST.status H.status200 >> ST.json ("testing" :: T.Text)
 
 
+indexFileEndpoint :: SlateScottyAction
+indexFileEndpoint = getIndexFile "./resources"
+
+
 --- getIndexFile
 
 
 unit_root :: Assertion
 unit_root = do
-  app      <- route getIndexFile
+  app      <- route indexFileEndpoint
   response <- runSession (getRequest "/") app
 
   assertResponseStatus H.status200 response
@@ -50,7 +54,7 @@ unit_root = do
 
 unit_gzip :: Assertion
 unit_gzip = do
-  let appLayers = (slateMiddleware [GZipping, StaticFileServing] undefined) <> [testEndpoint]
+  let appLayers = (slateMiddleware [GZipping, StaticFileServing] undefined undefined) <> [testEndpoint]
   app      <- route $ sequence_ appLayers
   response <- runSession (getRequestWithHeaders "/test" [(H.hAcceptEncoding, "gzip")]) app
 
@@ -64,7 +68,7 @@ unit_gzip = do
 
 unit_api_key_required :: Assertion
 unit_api_key_required = do
-  let appLayers = (slateMiddleware [ApiKeyRequiring] (ApiKey "QWERTY098")) <> [testEndpoint]
+  let appLayers = (slateMiddleware [ApiKeyRequiring] (ApiKey "QWERTY098") undefined) <> [testEndpoint]
   app      <- route $ sequence_ appLayers
   response <- runSession (getRequestWithHeaders "/test" []) app
 
@@ -77,7 +81,7 @@ unit_api_key_required = do
 
 unit_api_key_supplied :: Assertion
 unit_api_key_supplied = do
-  let appLayers = (slateMiddleware [ApiKeyRequiring] (ApiKey "QWERTY098")) <> [testEndpoint]
+  let appLayers = (slateMiddleware [ApiKeyRequiring] (ApiKey "QWERTY098") undefined) <> [testEndpoint]
   app      <- route $ sequence_ appLayers
   response <- runSession (getRequestWithHeaders "/test" [("x-api-key", "QWERTY098")]) app
 
@@ -90,7 +94,7 @@ unit_api_key_supplied = do
 
 unit_api_key_is_not_required_for_home_page :: Assertion
 unit_api_key_is_not_required_for_home_page = do
-  let appLayers = (slateMiddleware [ApiKeyRequiring] (ApiKey "QWERTY098")) <> [getIndexFile]
+  let appLayers = (slateMiddleware [ApiKeyRequiring] (ApiKey "QWERTY098") undefined) <> [indexFileEndpoint]
   app      <- route $ sequence_ appLayers
   response <- runSession (getRequestWithHeaders "/" []) app
 
@@ -103,7 +107,7 @@ unit_api_key_is_not_required_for_home_page = do
 
 unit_api_key_invalid_supplied :: Assertion
 unit_api_key_invalid_supplied = do
-  let appLayers = (slateMiddleware [ApiKeyRequiring] (ApiKey "QWERTY098")) <> [testEndpoint]
+  let appLayers = (slateMiddleware [ApiKeyRequiring] (ApiKey "QWERTY098") undefined) <> [testEndpoint]
   app      <- route $ sequence_ appLayers
   response <- runSession (getRequestWithHeaders "/test" [("x-api-key", "098QWERTY")]) app
 

@@ -23,7 +23,7 @@ module Server
        ,  serverOptions
        ) where
 
-import Model (ApiKey(..))
+import Model (ApiKey(..), StaticFileDir(..))
 
 import Data.String                          (fromString)
 import Control.Monad                        (void, when)
@@ -66,14 +66,14 @@ instance ST.ScottyError Except where
     stringError = GenericError . T.pack
     showError = fromString . show
 
-addStaticDirPolicy :: W.Policy
-addStaticDirPolicy = W.addBase "./static"
+addStaticDirPolicy :: StaticFileDir -> W.Policy
+addStaticDirPolicy = W.addBase . T.unpack . _fileDir
 
 createMiddleware :: W.Policy -> W.Middleware
 createMiddleware = W.staticPolicyWithOptions W.defaultOptions
 
-staticFileMiddleware :: W.Middleware
-staticFileMiddleware = createMiddleware addStaticDirPolicy
+staticFileMiddleware :: StaticFileDir -> W.Middleware
+staticFileMiddleware staticFileDir = createMiddleware $ addStaticDirPolicy staticFileDir
 
 zipMiddleware :: W.Middleware
 zipMiddleware = GZ.gzip (GZ.def { GZ.gzipFiles = GZ.GzipCompress })

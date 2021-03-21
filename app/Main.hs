@@ -15,4 +15,4 @@ config :: IO SlateConfig
 config = withDefaults <$> getApiKey
 
 withDefaults :: ApiKey -> SlateConfig
-withDefaults apiKey = SlateConfig apiKey Defaults.database Defaults.middleware Defaults.errorHandler
+withDefaults apiKey = SlateConfig apiKey Defaults.database Defaults.middleware Defaults.errorHandler Defaults.staticFileDir
