@@ -54,7 +54,7 @@ unit_root = do
 
 unit_gzip :: Assertion
 unit_gzip = do
-  let appLayers = (slateMiddleware [GZipping, StaticFileServing] undefined undefined) <> [testEndpoint]
+  let appLayers = (slateMiddleware [GZipping, StaticFileServing] undefined "./resources") <> [testEndpoint]
   app      <- route $ sequence_ appLayers
   response <- runSession (getRequestWithHeaders "/test" [(H.hAcceptEncoding, "gzip")]) app
 
