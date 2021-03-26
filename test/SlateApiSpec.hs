@@ -451,7 +451,7 @@ assertDeletedOnlyMatchedNote = seededAssertion (\con ->
     traverse_
       (response &)
       [
-        assertResponseStatus H.status204
+        assertResponseStatus H.status200
       , assertResponseBody expectedBody
       ]
 

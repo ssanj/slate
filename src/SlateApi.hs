@@ -25,7 +25,7 @@ import Control.Monad.IO.Class               (liftIO)
 import Data.Aeson                           (ToJSON(..))
 import Database.SQLite.Simple               (Connection, withTransaction)
 
-import Network.HTTP.Types.Status            (Status, created201, ok200, status400, noContent204)
+import Network.HTTP.Types.Status            (Status, created201, ok200, status400)
 
 import Paths_slate                          (version)
 import Control.Exception                    (IOException, catch, bracket)
@@ -132,7 +132,7 @@ deleteNoteEndpoint con =
     deleteE <- txSlateAction (deleteNote noteId) con
     case deleteE of
       Left errorMessage  -> withError errorMessage status400
-      (Right onlyNoteId) -> jsonResponse noContent204 onlyNoteId
+      (Right onlyNoteId) -> jsonResponse ok200 onlyNoteId
 
 
 txSlateActionWithJson :: ToJSON a => (Connection -> IO a) -> Connection -> SlateAction IO ()
