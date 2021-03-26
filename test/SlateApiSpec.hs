@@ -13,7 +13,7 @@ import Server                 (Except, SlateScottyAction)
 import Network.Wai            (Application)
 import Data.Foldable          (traverse_, find)
 import Model                  (OutgoingNote(..), OutgoingError(..), MiddlewareType(..), ApiKey(..), showt)
-import DB.DBNote              (mkNoteIdVersion, mkNoteId, mkNoteVersion, getNoteText, getInt, getBool)
+import DB.DBNote              (mkNoteIdVersion, mkNoteId, mkNoteVersion, getNoteText, getInt, getBool, getNoteId, getNoteVersion, NoteIdVersion)
 import Data.Function          ((&))
 import Control.Monad          (void)
 
@@ -289,7 +289,7 @@ assertUpdateUnmatchedNote = seededAssertion $ (\con ->
 
     response <- runSession (postJSON "/note" incoming) app
 
-    let expectedError = OutgoingError 1000 "The note specified could not be found"
+    let expectedError = encodeOutgoingError $ OutgoingError 1000 "The note specified could not be found"
 
     traverse_
       (response &)
@@ -327,7 +327,7 @@ assertUpdateIllegalVersion = seededAssertion $ (\con ->
 
     response <- runSession (postJSON "/note" incoming) app
 
-    let expectedError = OutgoingError 1001 "The version of the note supplied is invalid"
+    let expectedError = encodeOutgoingError $ OutgoingError 1001 "The version of the note supplied is invalid"
 
     traverse_
       (response &)
@@ -365,7 +365,7 @@ assertUpdateNoteUnmatchedVersion = seededAssertion (\con ->
 
     response <- runSession (postJSON "/note" incoming) app
 
-    let expectedError = OutgoingError 1002 "There's a different version of this note on the server. Refresh and try again"
+    let expectedError = encodeOutgoingError $ OutgoingError 1002 "There's a different version of this note on the server. Refresh and try again"
 
     traverse_
       (response &)
@@ -430,7 +430,7 @@ assertDeleteNoteUnmatchedNote = seededAssertion (\con ->
   do
     app      <- route . deleteNoteEndpoint $ con
     response <- runSession (deleteRequest "/note/1000") app
-    let expectedBody = OutgoingError 1000 "The note specified could not be found"
+    let expectedBody = encodeOutgoingError $ OutgoingError 1000 "The note specified could not be found"
 
     traverse_
       (response &)
@@ -467,7 +467,7 @@ assertDidNotDeleteDeletedNote = seededAssertion (\con ->
   do
     app      <- route . deleteNoteEndpoint $ con
     response <- runSession (deleteRequest "/note/1001") app
-    let expectedBody = OutgoingError 1006 "The note supplied has already been deleted"
+    let expectedBody = encodeOutgoingError $ OutgoingError 1006 "The note supplied has already been deleted"
 
     traverse_
       (response &)
@@ -484,6 +484,24 @@ assertDidNotDeleteDeletedNote = seededAssertion (\con ->
 
 
 -- Helper functions
+
+
+encodeOutgoingError :: OutgoingError -> A.Value
+encodeOutgoingError (OutgoingError errorId errorMessage) =
+    A.object
+      [
+        "errorId"      A..= errorId
+      , "errorMessage" A..= errorMessage
+      ]
+
+
+encodeNoteIdVersion :: NoteIdVersion -> A.Value
+encodeNoteIdVersion niv =
+  A.object
+    [
+      "noteId"      A..= (getNoteId niv)
+    , "noteVersion" A..= (getNoteVersion niv)
+    ]
 
 
 assertResponseBody :: forall a . (A.FromJSON a, Eq a, Show a) => a -> SResponse -> Assertion
