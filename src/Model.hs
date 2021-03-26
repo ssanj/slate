@@ -151,7 +151,7 @@ noteAndVersionJsonOptions :: Options
 noteAndVersionJsonOptions = aesonDrop 17 camelCase
 
 onlyNoteJsonOptions :: Options
-onlyNoteJsonOptions = aesonDrop 10 camelCase
+onlyNoteJsonOptions = aesonDrop 11 camelCase
 
 
 instance ToJSON OutgoingNote where
